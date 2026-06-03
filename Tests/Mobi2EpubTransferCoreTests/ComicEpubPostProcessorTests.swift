@@ -77,6 +77,10 @@ struct ComicEpubPostProcessorTests {
         #expect(firstPage.contains(#"src="../images/0000.jpeg""#))
         #expect(firstPage.contains(#"width="1067""#))
         #expect(firstPage.contains(#"height="1600""#))
+        #expect(firstPage.contains("width: 1067px"))
+        #expect(firstPage.contains("height: 1600px"))
+        #expect(!firstPage.contains(#"href="../stylesheet.css""#))
+        #expect(!firstPage.contains(#"href="../page_styles.css""#))
         #expect(!firstPage.contains("<svg"))
     }
 
