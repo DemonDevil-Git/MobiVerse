@@ -124,10 +124,10 @@ public struct ComicEpubPostProcessor {
           margin: 0 !important;
           padding: 0 !important;
         }
-        img, svg, .calibre2, .mobi-verse-image {
+        img, .calibre2, .mobi-verse-image {
           display: block !important;
-          width: 100% !important;
-          height: 100% !important;
+          width: auto !important;
+          height: auto !important;
           max-width: 100% !important;
           max-height: 100% !important;
           margin: 0 auto !important;
@@ -174,23 +174,46 @@ public struct ComicEpubPostProcessor {
               <head>
                 <title>\(title)</title>
                 <meta name="viewport" content="width=\(dimensions.width), height=\(dimensions.height)"/>
+                <style type="text/css">
+                  html, body {
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    height: 100%;
+                    overflow: hidden;
+                    background: #000;
+                  }
+                  body.mobi-verse-page {
+                    display: -webkit-box;
+                    display: flex;
+                    -webkit-box-align: center;
+                    -webkit-box-pack: center;
+                    align-items: center;
+                    justify-content: center;
+                    width: 100%;
+                    height: 100%;
+                    min-height: 100vh;
+                    line-height: 0;
+                    text-align: center;
+                  }
+                  img.mobi-verse-image {
+                    display: block;
+                    width: auto;
+                    height: auto;
+                    max-width: 100%;
+                    max-height: 100%;
+                    margin: 0 auto;
+                  }
+                </style>
                 <link href="../stylesheet.css" rel="stylesheet" type="text/css"/>
                 <link href="../page_styles.css" rel="stylesheet" type="text/css"/>
               </head>
               <body class="mobi-verse-page">
-                <svg xmlns="http://www.w3.org/2000/svg"
-                     xmlns:xlink="http://www.w3.org/1999/xlink"
-                     version="1.1"
-                     width="100%"
-                     height="100%"
-                     viewBox="0 0 \(dimensions.width) \(dimensions.height)"
-                     preserveAspectRatio="xMidYMid meet"
-                     aria-label="Comic page">
-                  <image width="\(dimensions.width)"
-                         height="\(dimensions.height)"
-                         xlink:href="\(imagePath)"
-                         href="\(imagePath)"/>
-                </svg>
+                <img class="mobi-verse-image"
+                     src="\(imagePath)"
+                     width="\(dimensions.width)"
+                     height="\(dimensions.height)"
+                     alt="Comic page"/>
               </body>
             </html>
             """

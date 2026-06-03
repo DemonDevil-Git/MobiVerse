@@ -71,7 +71,11 @@ struct ComicEpubPostProcessorTests {
         #expect(updatedOPF.contains(#"<meta name="fixed-layout" content="true"/>"#))
         #expect(updatedNCX.contains("Page 2"))
         #expect(firstPage.contains(#"<meta name="viewport" content="width=1200, height=1800"/>"#))
-        #expect(firstPage.contains("preserveAspectRatio=\"xMidYMid meet\""))
+        #expect(firstPage.contains(#"<style type="text/css">"#))
+        #expect(firstPage.contains(#"<img class="mobi-verse-image""#))
+        #expect(firstPage.contains(#"width="1200""#))
+        #expect(firstPage.contains(#"height="1800""#))
+        #expect(!firstPage.contains("<svg"))
     }
 
     private var opf: String {
