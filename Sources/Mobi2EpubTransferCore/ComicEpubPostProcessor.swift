@@ -244,9 +244,8 @@ public struct ComicEpubPostProcessor {
                     height: \(layoutDimensions.height)px;
                     line-height: 0;
                     background-color: #000;
-                    text-align: center;
                   }
-                  img.mobi-verse-image {
+                  svg.mobi-verse-image {
                     display: block;
                     width: \(layoutDimensions.width)px;
                     height: \(layoutDimensions.height)px;
@@ -255,11 +254,21 @@ public struct ComicEpubPostProcessor {
                 </style>
               </head>
               <body class="mobi-verse-page">
-                <img class="mobi-verse-image"
-                     src="\(imagePath)"
+                <svg class="mobi-verse-image"
+                     xmlns="http://www.w3.org/2000/svg"
+                     xmlns:xlink="http://www.w3.org/1999/xlink"
+                     version="1.1"
                      width="\(layoutDimensions.width)"
                      height="\(layoutDimensions.height)"
-                     alt="Comic page"/>
+                     viewBox="0 0 \(layoutDimensions.width) \(layoutDimensions.height)"
+                     preserveAspectRatio="xMidYMid meet"
+                     aria-label="Comic page">
+                  <image width="\(layoutDimensions.width)"
+                         height="\(layoutDimensions.height)"
+                         preserveAspectRatio="xMidYMid meet"
+                         xlink:href="\(imagePath)"
+                         href="\(imagePath)"/>
+                </svg>
               </body>
             </html>
             """
@@ -358,18 +367,19 @@ public struct ComicEpubPostProcessor {
         for match in matches.reversed() {
             guard let range = Range(match.range, in: rewritten) else { continue }
             var itemref = String(rewritten[range])
+            let requiredProperties = ["rendition:layout-pre-paginated", "svg"]
             if itemref.contains("properties=") {
-                if !itemref.contains("rendition:layout-pre-paginated") {
+                for property in requiredProperties where !itemref.contains(property) {
                     itemref = itemref.replacingOccurrences(
                         of: #"properties="([^"]*)""#,
-                        with: #"properties="$1 rendition:layout-pre-paginated""#,
+                        with: #"properties="$1 \#(property)""#,
                         options: .regularExpression
                     )
                 }
             } else {
                 itemref = itemref.replacingOccurrences(
                     of: "/>",
-                    with: #" properties="rendition:layout-pre-paginated"/>"#
+                    with: #" properties="rendition:layout-pre-paginated svg"/>"#
                 )
             }
             rewritten.replaceSubrange(range, with: itemref)
