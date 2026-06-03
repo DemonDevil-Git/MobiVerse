@@ -219,21 +219,37 @@ public struct ComicEpubPostProcessor {
                     background: #000;
                   }
                   body.mobi-verse-page {
+                    display: -webkit-box;
+                    display: flex;
+                    -webkit-box-align: center;
+                    -webkit-box-pack: center;
+                    align-items: center;
+                    justify-content: center;
                     width: 100%;
                     height: 100%;
                     min-height: 100vh;
                     line-height: 0;
                     background-color: #000;
-                    background-image: url("\(imagePath)");
-                    background-position: center center;
-                    background-repeat: no-repeat;
-                    background-size: contain;
+                    text-align: center;
+                  }
+                  img.mobi-verse-image {
+                    display: block;
+                    width: 100%;
+                    height: auto;
+                    max-width: 100%;
+                    max-height: 100%;
+                    margin: 0 auto;
                   }
                 </style>
                 <link href="../stylesheet.css" rel="stylesheet" type="text/css"/>
                 <link href="../page_styles.css" rel="stylesheet" type="text/css"/>
               </head>
               <body class="mobi-verse-page">
+                <img class="mobi-verse-image"
+                     src="\(imagePath)"
+                     width="\(layoutDimensions.width)"
+                     height="\(layoutDimensions.height)"
+                     alt="Comic page"/>
               </body>
             </html>
             """

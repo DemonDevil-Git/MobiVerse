@@ -72,9 +72,11 @@ struct ComicEpubPostProcessorTests {
         #expect(updatedNCX.contains("Page 2"))
         #expect(firstPage.contains(#"<meta name="viewport" content="width=1067, height=1600"/>"#))
         #expect(firstPage.contains(#"<style type="text/css">"#))
-        #expect(firstPage.contains(#"background-image: url("../images/0000.jpeg")"#))
-        #expect(firstPage.contains("background-size: contain"))
-        #expect(!firstPage.contains("<img"))
+        #expect(!firstPage.contains("background-image"))
+        #expect(firstPage.contains(#"<img class="mobi-verse-image""#))
+        #expect(firstPage.contains(#"src="../images/0000.jpeg""#))
+        #expect(firstPage.contains(#"width="1067""#))
+        #expect(firstPage.contains(#"height="1600""#))
         #expect(!firstPage.contains("<svg"))
     }
 
