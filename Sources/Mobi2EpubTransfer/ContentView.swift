@@ -133,10 +133,16 @@ struct ContentView: View {
 
     private var taskList: some View {
         List(viewModel.tasks) { task in
-            TaskRow(task: task) {
+            TaskRow(
+                task: task,
+                isOutputMissing: viewModel.isOutputMissing(for: task),
+                canDelete: viewModel.canDelete(task)
+            ) {
                 viewModel.revealOutput(for: task)
             } openReport: {
                 viewModel.openReport(for: task)
+            } deleteHistory: {
+                viewModel.deleteTask(task)
             }
         }
         .overlay {
@@ -252,8 +258,11 @@ private struct ToolStatusButton: View {
 
 private struct TaskRow: View {
     let task: ConversionTask
+    let isOutputMissing: Bool
+    let canDelete: Bool
     let revealOutput: () -> Void
     let openReport: () -> Void
+    let deleteHistory: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -276,14 +285,19 @@ private struct TaskRow: View {
 
                 Spacer()
 
-                StatusBadge(status: task.status)
+                if isOutputMissing {
+                    MissingFileBadge()
+                } else {
+                    StatusBadge(status: task.status)
+                }
             }
 
             ProgressView(value: task.progress)
                 .progressViewStyle(.linear)
+                .opacity(isOutputMissing ? 0.35 : 1)
 
             HStack {
-                Text(task.statusMessage)
+                Text(isOutputMissing ? "Converted EPUB is no longer at the saved output path." : task.statusMessage)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -295,7 +309,7 @@ private struct TaskRow: View {
                 } label: {
                     Label("Reveal", systemImage: "folder")
                 }
-                .disabled(task.outputURL == nil)
+                .disabled(task.outputURL == nil || isOutputMissing)
 
                 Button {
                     openReport()
@@ -303,11 +317,31 @@ private struct TaskRow: View {
                     Label("Report", systemImage: "doc.text")
                 }
                 .disabled(task.reportURL == nil)
+
+                Button(role: .destructive) {
+                    deleteHistory()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                .disabled(!canDelete)
+                .help(canDelete ? "Delete this history record" : "Active conversions cannot be deleted")
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
         }
         .padding(.vertical, 8)
+        .opacity(isOutputMissing ? 0.48 : 1)
+    }
+}
+
+private struct MissingFileBadge: View {
+    var body: some View {
+        Label("File missing", systemImage: "questionmark.folder.fill")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.secondary.opacity(0.12), in: Capsule())
     }
 }
 

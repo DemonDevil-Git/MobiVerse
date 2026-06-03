@@ -76,6 +76,31 @@ final class ConversionViewModel: ObservableObject {
         NSWorkspace.shared.open(reportURL)
     }
 
+    func deleteTask(_ task: ConversionTask) {
+        guard canDelete(task) else { return }
+        tasks.removeAll { $0.id == task.id }
+        persistTasks()
+    }
+
+    func canDelete(_ task: ConversionTask) -> Bool {
+        switch task.status {
+        case .checkingTools, .converting, .validating:
+            false
+        case .queued, .succeeded, .succeededWithWarnings, .failed:
+            true
+        }
+    }
+
+    func isOutputMissing(for task: ConversionTask) -> Bool {
+        guard
+            task.status == .succeeded || task.status == .succeededWithWarnings,
+            let outputURL = task.outputURL
+        else {
+            return false
+        }
+        return !FileManager.default.fileExists(atPath: outputURL.path)
+    }
+
     private func startProcessingIfNeeded() {
         guard !isProcessing else { return }
         isProcessing = true
