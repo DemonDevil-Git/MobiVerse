@@ -1,0 +1,12 @@
+MobiVerse is licensed under the GNU General Public License version 3 or later.
+
+You may redistribute and/or modify this project under the terms of the GNU
+General Public License as published by the Free Software Foundation, either
+version 3 of the License, or at your option any later version.
+
+The full license text is available at:
+https://www.gnu.org/licenses/gpl-3.0.html
+
+This project can package Calibre for local app distribution. Calibre is also
+licensed under the GNU General Public License version 3, and distributors must
+satisfy Calibre's corresponding source-code distribution requirements.

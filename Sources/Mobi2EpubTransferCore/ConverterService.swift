@@ -1,0 +1,161 @@
+import Foundation
+
+public enum ConversionFailureKind: Equatable, Sendable {
+    case missingCalibre
+    case drmProtected
+    case inputUnreadable
+    case outputPermissionDenied
+    case conversionFailed
+}
+
+public struct ConversionServiceError: Error, Equatable {
+    public let kind: ConversionFailureKind
+    public let message: String
+    public let log: String
+
+    public init(kind: ConversionFailureKind, message: String, log: String = "") {
+        self.kind = kind
+        self.message = message
+        self.log = log
+    }
+}
+
+public struct ConversionRunResult: Equatable, Sendable {
+    public let outputURL: URL
+    public let log: String
+
+    public init(outputURL: URL, log: String) {
+        self.outputURL = outputURL
+        self.log = log
+    }
+}
+
+public struct ConverterService: Sendable {
+    private let ebookConvertURL: URL?
+    private let runner: any ProcessRunning
+
+    public init(ebookConvertURL: URL?, runner: any ProcessRunning = ProcessRunner()) {
+        self.ebookConvertURL = ebookConvertURL
+        self.runner = runner
+    }
+
+    public func convert(inputURL: URL, outputURL: URL) async throws -> ConversionRunResult {
+        guard let ebookConvertURL else {
+            throw ConversionServiceError(
+                kind: .missingCalibre,
+                message: "Calibre CLI was not found. Install Calibre before converting."
+            )
+        }
+
+        let arguments = [
+            inputURL.path,
+            outputURL.path,
+            "--preserve-cover-aspect-ratio",
+            "--disable-font-rescaling",
+            "--pretty-print",
+            "--epub-max-image-size=none",
+            "--margin-top=0",
+            "--margin-right=0",
+            "--margin-bottom=0",
+            "--margin-left=0",
+            "--filter-css=height,width,margin,margin-left,margin-right,margin-top,margin-bottom,padding,padding-left,padding-right,padding-top,padding-bottom",
+            "--extra-css=\(Self.comicExtraCSS)"
+        ]
+
+        let result = try await runner.run(executableURL: ebookConvertURL, arguments: arguments)
+        guard result.exitCode == 0 else {
+            let kind = Self.classifyFailure(log: result.output)
+            throw ConversionServiceError(
+                kind: kind,
+                message: Self.message(for: kind),
+                log: result.output
+            )
+        }
+
+        return ConversionRunResult(outputURL: outputURL, log: result.output)
+    }
+
+    public static func classifyFailure(log: String) -> ConversionFailureKind {
+        let lowercasedLog = log.lowercased()
+        let drmMarkers = [
+            "drm",
+            "encrypted",
+            "this book is locked",
+            "cannot be converted because it is protected",
+            "protected by"
+        ]
+        if drmMarkers.contains(where: { lowercasedLog.contains($0) }) {
+            return .drmProtected
+        }
+
+        let inputMarkers = [
+            "no such file",
+            "not a valid",
+            "could not open",
+            "bad magic",
+            "corrupt",
+            "truncated"
+        ]
+        if inputMarkers.contains(where: { lowercasedLog.contains($0) }) {
+            return .inputUnreadable
+        }
+
+        let permissionMarkers = [
+            "permission denied",
+            "operation not permitted",
+            "read-only file system"
+        ]
+        if permissionMarkers.contains(where: { lowercasedLog.contains($0) }) {
+            return .outputPermissionDenied
+        }
+
+        return .conversionFailed
+    }
+
+    public static let comicExtraCSS = """
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      background: #000 !important;
+    }
+    body.calibre, .calibre, .calibre1 {
+      display: block !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      text-align: center !important;
+      text-indent: 0 !important;
+      line-height: 0 !important;
+    }
+    img, .calibre2 {
+      display: block !important;
+      width: auto !important;
+      height: auto !important;
+      max-width: 100% !important;
+      max-height: 100vh !important;
+      margin: 0 auto !important;
+      object-fit: contain !important;
+      page-break-inside: avoid !important;
+    }
+    @page {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    """
+
+    public static func message(for kind: ConversionFailureKind) -> String {
+        switch kind {
+        case .missingCalibre:
+            "Calibre CLI was not found. Install Calibre before converting."
+        case .drmProtected:
+            "This file appears to be protected. MobiVerse does not remove DRM."
+        case .inputUnreadable:
+            "The source file could not be read or appears to be damaged."
+        case .outputPermissionDenied:
+            "The app could not write the EPUB in the source folder. Check folder permissions."
+        case .conversionFailed:
+            "Calibre could not convert this file. Review the conversion log for details."
+        }
+    }
+}
