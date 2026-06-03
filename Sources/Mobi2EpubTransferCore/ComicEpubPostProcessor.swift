@@ -42,6 +42,14 @@ private struct ImageDimensions: Equatable {
     }
 }
 
+private struct RebuiltPage: Equatable {
+    let id: String
+    let htmlFileName: String
+    let imageFileName: String
+    let imageMediaType: String
+    let layoutDimensions: ImageDimensions
+}
+
 public struct ComicEpubPostProcessor {
     private static let maximumImageLongEdge = 2200
     private static let maximumLayoutLongEdge = 1600
@@ -71,19 +79,25 @@ public struct ComicEpubPostProcessor {
             throw ComicPostProcessError.unzipFailed(unzipResult.output)
         }
 
-        let htmlFiles = try sortedHTMLFiles(in: workingDirectory.appendingPathComponent("text"))
         let imageFiles = try sortedImageFiles(in: workingDirectory.appendingPathComponent("images"))
         try await normalizeLargeImages(imageFiles)
-        try rewriteStyles(in: workingDirectory)
-        try writeAppleBooksDisplayOptions(in: workingDirectory)
-        let rewrittenPageCount = try rewriteImagePages(htmlFiles: htmlFiles, rootDirectory: workingDirectory)
-        let opfURL = workingDirectory.appendingPathComponent("content.opf")
-        let opfResult = try rewriteOPF(at: opfURL)
-        let tocEntryCount = try rewriteNCX(
-            at: workingDirectory.appendingPathComponent("toc.ncx"),
-            title: title(fromOPFAt: opfURL) ?? epubURL.deletingPathExtension().lastPathComponent,
-            htmlFiles: htmlFiles
+        let title = title(fromOPFAt: workingDirectory.appendingPathComponent("content.opf"))
+            ?? epubURL.deletingPathExtension().lastPathComponent
+
+        let rebuiltDirectory = fileManager.temporaryDirectory
+            .appendingPathComponent("MobiVerseRebuiltEPUB")
+            .appendingPathComponent(UUID().uuidString)
+        try fileManager.createDirectory(at: rebuiltDirectory, withIntermediateDirectories: true)
+        defer {
+            try? fileManager.removeItem(at: rebuiltDirectory)
+        }
+
+        let pages = try rebuildFixedLayoutEPUB(
+            title: title,
+            imageFiles: imageFiles,
+            outputDirectory: rebuiltDirectory
         )
+        let tocEntryCount = tocEntries(for: pages).count
 
         let replacementURL = epubURL
             .deletingLastPathComponent()
@@ -91,10 +105,19 @@ public struct ComicEpubPostProcessor {
         try? fileManager.removeItem(at: replacementURL)
         try? fileManager.removeItem(at: epubURL)
 
+        let mimetypeZipResult = try await runner.run(
+            executableURL: URL(fileURLWithPath: "/usr/bin/zip"),
+            arguments: ["-X", "-q", "-0", replacementURL.path, "mimetype"],
+            currentDirectoryURL: rebuiltDirectory
+        )
+        guard mimetypeZipResult.exitCode == 0 else {
+            throw ComicPostProcessError.zipFailed(mimetypeZipResult.output)
+        }
+
         let zipResult = try await runner.run(
             executableURL: URL(fileURLWithPath: "/usr/bin/zip"),
-            arguments: ["-X", "-q", "-r", replacementURL.path, "."],
-            currentDirectoryURL: workingDirectory
+            arguments: ["-X", "-q", "-r", replacementURL.path, "META-INF", "OEBPS"],
+            currentDirectoryURL: rebuiltDirectory
         )
         guard zipResult.exitCode == 0 else {
             throw ComicPostProcessError.zipFailed(zipResult.output)
@@ -102,12 +125,12 @@ public struct ComicEpubPostProcessor {
         try fileManager.moveItem(at: replacementURL, to: epubURL)
 
         return ComicPostProcessResult(
-            pageCount: htmlFiles.count,
+            pageCount: pages.count,
             imageCount: imageFiles.count,
             tocEntryCount: tocEntryCount,
             removedFixedImageSizing: true,
-            appliedRightToLeftMetadata: opfResult.appliedRightToLeftMetadata,
-            appliedFixedLayoutMetadata: opfResult.appliedFixedLayoutMetadata && rewrittenPageCount > 0
+            appliedRightToLeftMetadata: true,
+            appliedFixedLayoutMetadata: !pages.isEmpty
         )
     }
 
@@ -129,6 +152,202 @@ public struct ComicEpubPostProcessor {
             atomically: true,
             encoding: .utf8
         )
+    }
+
+    private func rebuildFixedLayoutEPUB(
+        title: String,
+        imageFiles: [URL],
+        outputDirectory: URL
+    ) throws -> [RebuiltPage] {
+        let metaInfURL = outputDirectory.appendingPathComponent("META-INF", isDirectory: true)
+        let oebpsURL = outputDirectory.appendingPathComponent("OEBPS", isDirectory: true)
+        let pagesURL = oebpsURL.appendingPathComponent("pages", isDirectory: true)
+        let imagesURL = oebpsURL.appendingPathComponent("images", isDirectory: true)
+        try fileManager.createDirectory(at: metaInfURL, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: pagesURL, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: imagesURL, withIntermediateDirectories: true)
+
+        try "application/epub+zip".write(
+            to: outputDirectory.appendingPathComponent("mimetype"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try writeContainerXML(in: metaInfURL)
+        try writeAppleBooksDisplayOptions(in: outputDirectory)
+
+        let pages = try imageFiles.enumerated().map { index, sourceImageURL in
+            try rebuildPage(
+                index: index,
+                sourceImageURL: sourceImageURL,
+                pagesDirectory: pagesURL,
+                imagesDirectory: imagesURL
+            )
+        }
+
+        try writeNavigation(title: title, pages: pages, in: oebpsURL)
+        try writeContentOPF(title: title, pages: pages, in: oebpsURL)
+        return pages
+    }
+
+    private func writeContainerXML(in metaInfURL: URL) throws {
+        let container = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+          <rootfiles>
+            <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+          </rootfiles>
+        </container>
+        """
+        try container.write(
+            to: metaInfURL.appendingPathComponent("container.xml"),
+            atomically: true,
+            encoding: .utf8
+        )
+    }
+
+    private func rebuildPage(
+        index: Int,
+        sourceImageURL: URL,
+        pagesDirectory: URL,
+        imagesDirectory: URL
+    ) throws -> RebuiltPage {
+        let id = String(format: "page-%05d", index + 1)
+        let imageFileName = "\(id).\(normalizedImageExtension(for: sourceImageURL))"
+        let htmlFileName = "\(id).xhtml"
+        let copiedImageURL = imagesDirectory.appendingPathComponent(imageFileName)
+        try fileManager.copyItem(at: sourceImageURL, to: copiedImageURL)
+
+        let dimensions = imageDimensions(at: copiedImageURL) ?? ImageDimensions(width: 1200, height: 1800)
+        let layoutDimensions = dimensions.scaledToFit(maxLongEdge: Self.maximumLayoutLongEdge)
+        let imageReference = "../images/\(imageFileName)"
+        let html = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE html>
+        <html xmlns="http://www.w3.org/1999/xhtml">
+          <head>
+            <title>\(escapeXML(id))</title>
+            <meta name="viewport" content="width=\(layoutDimensions.width), height=\(layoutDimensions.height)"/>
+            <style type="text/css">
+              html, body {
+                margin: 0;
+                padding: 0;
+                width: \(layoutDimensions.width)px;
+                height: \(layoutDimensions.height)px;
+                overflow: hidden;
+                background: #000;
+              }
+              body {
+                width: \(layoutDimensions.width)px;
+                height: \(layoutDimensions.height)px;
+                line-height: 0;
+              }
+              svg {
+                display: block;
+                width: \(layoutDimensions.width)px;
+                height: \(layoutDimensions.height)px;
+              }
+            </style>
+          </head>
+          <body>
+            <svg class="mobi-verse-image"
+                 xmlns="http://www.w3.org/2000/svg"
+                 xmlns:xlink="http://www.w3.org/1999/xlink"
+                 version="1.1"
+                 width="\(layoutDimensions.width)"
+                 height="\(layoutDimensions.height)"
+                 viewBox="0 0 \(layoutDimensions.width) \(layoutDimensions.height)"
+                 preserveAspectRatio="xMidYMid meet"
+                 aria-label="Comic page">
+              <image width="\(layoutDimensions.width)"
+                     height="\(layoutDimensions.height)"
+                     preserveAspectRatio="xMidYMid meet"
+                     xlink:href="\(escapeXML(imageReference))"
+                     href="\(escapeXML(imageReference))"/>
+            </svg>
+          </body>
+        </html>
+        """
+        try html.write(
+            to: pagesDirectory.appendingPathComponent(htmlFileName),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        return RebuiltPage(
+            id: id,
+            htmlFileName: htmlFileName,
+            imageFileName: imageFileName,
+            imageMediaType: mediaType(for: copiedImageURL),
+            layoutDimensions: layoutDimensions
+        )
+    }
+
+    private func writeNavigation(title: String, pages: [RebuiltPage], in oebpsURL: URL) throws {
+        let navItems = tocEntries(for: pages).map { page in
+            """
+                <li><a href="pages/\(page.htmlFileName)">\(escapeXML(page.id))</a></li>
+            """
+        }.joined(separator: "\n")
+        let nav = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE html>
+        <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+          <head>
+            <title>\(escapeXML(title))</title>
+          </head>
+          <body>
+            <nav epub:type="toc" id="toc">
+              <h1>\(escapeXML(title))</h1>
+              <ol>
+        \(navItems)
+              </ol>
+            </nav>
+          </body>
+        </html>
+        """
+        try nav.write(to: oebpsURL.appendingPathComponent("nav.xhtml"), atomically: true, encoding: .utf8)
+    }
+
+    private func writeContentOPF(title: String, pages: [RebuiltPage], in oebpsURL: URL) throws {
+        let imageItems = pages.map { page in
+            #"    <item id="\#(page.id)-image" href="images/\#(page.imageFileName)" media-type="\#(page.imageMediaType)"/>"#
+        }.joined(separator: "\n")
+        let pageItems = pages.map { page in
+            #"    <item id="\#(page.id)" href="pages/\#(page.htmlFileName)" media-type="application/xhtml+xml" properties="svg"/>"#
+        }.joined(separator: "\n")
+        let spineItems = pages.map { page in
+            #"    <itemref idref="\#(page.id)" properties="rendition:layout-pre-paginated svg"/>"#
+        }.joined(separator: "\n")
+        let opf = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <package xmlns="http://www.idpf.org/2007/opf"
+                 version="3.0"
+                 unique-identifier="book-id"
+                 prefix="rendition: http://www.idpf.org/vocab/rendition/#">
+          <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <dc:identifier id="book-id">urn:uuid:\(UUID().uuidString)</dc:identifier>
+            <dc:title>\(escapeXML(title))</dc:title>
+            <dc:language>ja</dc:language>
+            <meta property="rendition:layout">pre-paginated</meta>
+            <meta property="rendition:orientation">auto</meta>
+            <meta property="rendition:spread">none</meta>
+            <meta name="primary-writing-mode" content="vertical-rl"/>
+            <meta name="fixed-layout" content="true"/>
+            <meta name="book-type" content="comic"/>
+            <meta name="zero-gutter" content="true"/>
+            <meta name="zero-margin" content="true"/>
+          </metadata>
+          <manifest>
+            <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+        \(pageItems)
+        \(imageItems)
+          </manifest>
+          <spine page-progression-direction="rtl">
+        \(spineItems)
+          </spine>
+        </package>
+        """
+        try opf.write(to: oebpsURL.appendingPathComponent("content.opf"), atomically: true, encoding: .utf8)
     }
 
     private func rewriteStyles(in directory: URL) throws {
@@ -432,6 +651,15 @@ public struct ComicEpubPostProcessor {
         return entries
     }
 
+    private func tocEntries(for pages: [RebuiltPage]) -> [RebuiltPage] {
+        guard !pages.isEmpty else { return [] }
+        var entries: [RebuiltPage] = [pages[0]]
+        for (index, page) in pages.enumerated() where index > 0 && index % 25 == 0 {
+            entries.append(page)
+        }
+        return entries
+    }
+
     private func sortedFiles(in directory: URL, extension pathExtension: String) throws -> [URL] {
         guard fileManager.fileExists(atPath: directory.path) else { return [] }
         return try fileManager.contentsOfDirectory(
@@ -454,6 +682,24 @@ public struct ComicEpubPostProcessor {
         return try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .filter { ["jpeg", "jpg", "png", "webp"].contains($0.pathExtension.lowercased()) }
             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+    }
+
+    private func normalizedImageExtension(for url: URL) -> String {
+        let pathExtension = url.pathExtension.lowercased()
+        return pathExtension == "jpeg" ? "jpg" : pathExtension
+    }
+
+    private func mediaType(for url: URL) -> String {
+        switch url.pathExtension.lowercased() {
+        case "jpg", "jpeg":
+            "image/jpeg"
+        case "png":
+            "image/png"
+        case "webp":
+            "image/webp"
+        default:
+            "application/octet-stream"
+        }
     }
 
     private func firstImageReference(in htmlURL: URL) throws -> String? {
