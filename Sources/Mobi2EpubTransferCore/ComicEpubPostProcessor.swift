@@ -30,9 +30,22 @@ private struct OPFRewriteResult: Equatable {
 private struct ImageDimensions: Equatable {
     let width: Int
     let height: Int
+
+    func scaledToFit(maxLongEdge: Int) -> ImageDimensions {
+        let longEdge = max(width, height)
+        guard longEdge > maxLongEdge else { return self }
+        let scale = Double(maxLongEdge) / Double(longEdge)
+        return ImageDimensions(
+            width: max(1, Int((Double(width) * scale).rounded())),
+            height: max(1, Int((Double(height) * scale).rounded()))
+        )
+    }
 }
 
 public struct ComicEpubPostProcessor {
+    private static let maximumImageLongEdge = 2200
+    private static let maximumLayoutLongEdge = 1600
+
     private let runner: any ProcessRunning
     private let fileManager: FileManager
 
@@ -60,6 +73,7 @@ public struct ComicEpubPostProcessor {
 
         let htmlFiles = try sortedHTMLFiles(in: workingDirectory.appendingPathComponent("text"))
         let imageFiles = try sortedImageFiles(in: workingDirectory.appendingPathComponent("images"))
+        try await normalizeLargeImages(imageFiles)
         try rewriteStyles(in: workingDirectory)
         let rewrittenPageCount = try rewriteImagePages(htmlFiles: htmlFiles, rootDirectory: workingDirectory)
         let opfURL = workingDirectory.appendingPathComponent("content.opf")
@@ -154,6 +168,26 @@ public struct ComicEpubPostProcessor {
         )
     }
 
+    private func normalizeLargeImages(_ imageFiles: [URL]) async throws {
+        for imageURL in imageFiles {
+            guard
+                ["jpg", "jpeg", "png"].contains(imageURL.pathExtension.lowercased()),
+                let dimensions = imageDimensions(at: imageURL),
+                max(dimensions.width, dimensions.height) > Self.maximumImageLongEdge
+            else {
+                continue
+            }
+
+            let result = try await runner.run(
+                executableURL: URL(fileURLWithPath: "/usr/bin/sips"),
+                arguments: ["-Z", "\(Self.maximumImageLongEdge)", imageURL.path]
+            )
+            guard result.exitCode == 0 else {
+                continue
+            }
+        }
+    }
+
     private func rewriteImagePages(htmlFiles: [URL], rootDirectory: URL) throws -> Int {
         var rewrittenCount = 0
         for htmlURL in htmlFiles {
@@ -165,6 +199,7 @@ public struct ComicEpubPostProcessor {
             }
 
             let dimensions = imageDimensions(at: imageURL) ?? ImageDimensions(width: 1200, height: 1800)
+            let layoutDimensions = dimensions.scaledToFit(maxLongEdge: Self.maximumLayoutLongEdge)
             let title = escapeXML(htmlURL.deletingPathExtension().lastPathComponent)
             let imagePath = escapeXML(imageReference)
             let html = """
@@ -173,7 +208,7 @@ public struct ComicEpubPostProcessor {
             <html xmlns="http://www.w3.org/1999/xhtml">
               <head>
                 <title>\(title)</title>
-                <meta name="viewport" content="width=\(dimensions.width), height=\(dimensions.height)"/>
+                <meta name="viewport" content="width=\(layoutDimensions.width), height=\(layoutDimensions.height)"/>
                 <style type="text/css">
                   html, body {
                     margin: 0;
@@ -184,36 +219,21 @@ public struct ComicEpubPostProcessor {
                     background: #000;
                   }
                   body.mobi-verse-page {
-                    display: -webkit-box;
-                    display: flex;
-                    -webkit-box-align: center;
-                    -webkit-box-pack: center;
-                    align-items: center;
-                    justify-content: center;
                     width: 100%;
                     height: 100%;
                     min-height: 100vh;
                     line-height: 0;
-                    text-align: center;
-                  }
-                  img.mobi-verse-image {
-                    display: block;
-                    width: auto;
-                    height: auto;
-                    max-width: 100%;
-                    max-height: 100%;
-                    margin: 0 auto;
+                    background-color: #000;
+                    background-image: url("\(imagePath)");
+                    background-position: center center;
+                    background-repeat: no-repeat;
+                    background-size: contain;
                   }
                 </style>
                 <link href="../stylesheet.css" rel="stylesheet" type="text/css"/>
                 <link href="../page_styles.css" rel="stylesheet" type="text/css"/>
               </head>
               <body class="mobi-verse-page">
-                <img class="mobi-verse-image"
-                     src="\(imagePath)"
-                     width="\(dimensions.width)"
-                     height="\(dimensions.height)"
-                     alt="Comic page"/>
               </body>
             </html>
             """
