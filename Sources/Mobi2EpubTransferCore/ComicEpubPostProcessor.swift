@@ -75,6 +75,7 @@ public struct ComicEpubPostProcessor {
         let imageFiles = try sortedImageFiles(in: workingDirectory.appendingPathComponent("images"))
         try await normalizeLargeImages(imageFiles)
         try rewriteStyles(in: workingDirectory)
+        try writeAppleBooksDisplayOptions(in: workingDirectory)
         let rewrittenPageCount = try rewriteImagePages(htmlFiles: htmlFiles, rootDirectory: workingDirectory)
         let opfURL = workingDirectory.appendingPathComponent("content.opf")
         let opfResult = try rewriteOPF(at: opfURL)
@@ -107,6 +108,26 @@ public struct ComicEpubPostProcessor {
             removedFixedImageSizing: true,
             appliedRightToLeftMetadata: opfResult.appliedRightToLeftMetadata,
             appliedFixedLayoutMetadata: opfResult.appliedFixedLayoutMetadata && rewrittenPageCount > 0
+        )
+    }
+
+    private func writeAppleBooksDisplayOptions(in directory: URL) throws {
+        let metaInfURL = directory.appendingPathComponent("META-INF", isDirectory: true)
+        try fileManager.createDirectory(at: metaInfURL, withIntermediateDirectories: true)
+        let displayOptions = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <display_options>
+          <platform name="*">
+            <option name="fixed-layout">true</option>
+            <option name="open-to-spread">false</option>
+            <option name="specified-fonts">false</option>
+          </platform>
+        </display_options>
+        """
+        try displayOptions.write(
+            to: metaInfURL.appendingPathComponent("com.apple.ibooks.display-options.xml"),
+            atomically: true,
+            encoding: .utf8
         )
     }
 
@@ -250,6 +271,7 @@ public struct ComicEpubPostProcessor {
 
     private func rewriteOPF(at url: URL) throws -> OPFRewriteResult {
         var opf = try String(contentsOf: url, encoding: .utf8)
+        opf = rewritePackageTagForFixedLayout(opf)
         if opf.contains("primary-writing-mode") {
             opf = opf.replacingOccurrences(
                 of: #"<meta name="primary-writing-mode" content="[^"]*"\s*/>"#,
@@ -285,12 +307,74 @@ public struct ComicEpubPostProcessor {
                 with: "    \(metadata)\n  </metadata>"
             )
         }
+        opf = rewriteSpineItemrefsForFixedLayout(opf)
 
         try opf.write(to: url, atomically: true, encoding: .utf8)
         return OPFRewriteResult(
             appliedRightToLeftMetadata: opf.contains("vertical-rl") || opf.contains("page-progression-direction=\"rtl\""),
             appliedFixedLayoutMetadata: opf.contains("rendition:layout") && opf.contains("fixed-layout")
         )
+    }
+
+    private func rewritePackageTagForFixedLayout(_ opf: String) -> String {
+        guard
+            let regex = try? NSRegularExpression(pattern: #"<package\b([^>]*)>"#, options: []),
+            let match = regex.firstMatch(in: opf, range: NSRange(opf.startIndex..<opf.endIndex, in: opf)),
+            let matchRange = Range(match.range, in: opf)
+        else {
+            return opf
+        }
+
+        var packageTag = String(opf[matchRange])
+        packageTag = packageTag.replacingOccurrences(
+            of: #"version="[^"]*""#,
+            with: #"version="3.0""#,
+            options: .regularExpression
+        )
+        if !packageTag.contains("prefix=") {
+            packageTag = packageTag.replacingOccurrences(
+                of: ">",
+                with: #" prefix="rendition: http://www.idpf.org/vocab/rendition/#">"#
+            )
+        } else if !packageTag.contains("http://www.idpf.org/vocab/rendition/#") {
+            packageTag = packageTag.replacingOccurrences(
+                of: #"prefix="([^"]*)""#,
+                with: #"prefix="$1 rendition: http://www.idpf.org/vocab/rendition/#""#,
+                options: .regularExpression
+            )
+        }
+
+        var rewritten = opf
+        rewritten.replaceSubrange(matchRange, with: packageTag)
+        return rewritten
+    }
+
+    private func rewriteSpineItemrefsForFixedLayout(_ opf: String) -> String {
+        guard let regex = try? NSRegularExpression(pattern: #"<itemref\b([^>]*)/>"#, options: []) else {
+            return opf
+        }
+        let matches = regex.matches(in: opf, range: NSRange(opf.startIndex..<opf.endIndex, in: opf))
+        var rewritten = opf
+        for match in matches.reversed() {
+            guard let range = Range(match.range, in: rewritten) else { continue }
+            var itemref = String(rewritten[range])
+            if itemref.contains("properties=") {
+                if !itemref.contains("rendition:layout-pre-paginated") {
+                    itemref = itemref.replacingOccurrences(
+                        of: #"properties="([^"]*)""#,
+                        with: #"properties="$1 rendition:layout-pre-paginated""#,
+                        options: .regularExpression
+                    )
+                }
+            } else {
+                itemref = itemref.replacingOccurrences(
+                    of: "/>",
+                    with: #" properties="rendition:layout-pre-paginated"/>"#
+                )
+            }
+            rewritten.replaceSubrange(range, with: itemref)
+        }
+        return rewritten
     }
 
     private func rewriteNCX(at url: URL, title: String, htmlFiles: [URL]) throws -> Int {

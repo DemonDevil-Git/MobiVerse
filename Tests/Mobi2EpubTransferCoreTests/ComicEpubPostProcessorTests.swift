@@ -62,13 +62,18 @@ struct ComicEpubPostProcessorTests {
         let updatedOPF = try await unzipContent(epubURL: epubURL, path: "content.opf")
         let updatedNCX = try await unzipContent(epubURL: epubURL, path: "toc.ncx")
         let firstPage = try await unzipContent(epubURL: epubURL, path: "text/part0000.html")
+        let appleDisplayOptions = try await unzipContent(epubURL: epubURL, path: "META-INF/com.apple.ibooks.display-options.xml")
 
         #expect(stylesheet.contains("overflow: hidden"))
         #expect(!stylesheet.contains("1072px"))
         #expect(updatedOPF.contains("page-progression-direction=\"rtl\""))
         #expect(updatedOPF.contains("vertical-rl"))
+        #expect(updatedOPF.contains(#"version="3.0""#))
+        #expect(updatedOPF.contains("http://www.idpf.org/vocab/rendition/#"))
         #expect(updatedOPF.contains(#"<meta property="rendition:layout">pre-paginated</meta>"#))
         #expect(updatedOPF.contains(#"<meta name="fixed-layout" content="true"/>"#))
+        #expect(updatedOPF.contains(#"properties="rendition:layout-pre-paginated""#))
+        #expect(appleDisplayOptions.contains(#"<option name="fixed-layout">true</option>"#))
         #expect(updatedNCX.contains("Page 2"))
         #expect(firstPage.contains(#"<meta name="viewport" content="width=1067, height=1600"/>"#))
         #expect(firstPage.contains(#"<style type="text/css">"#))
@@ -96,6 +101,7 @@ struct ComicEpubPostProcessorTests {
             <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
           </manifest>
           <spine toc="ncx">
+            <itemref idref="page-0000"/>
           </spine>
         </package>
         """
