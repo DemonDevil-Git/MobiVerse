@@ -56,16 +56,22 @@ struct ComicEpubPostProcessorTests {
         #expect(result.imageCount == 30)
         #expect(result.tocEntryCount == 2)
         #expect(result.appliedRightToLeftMetadata)
+        #expect(result.appliedFixedLayoutMetadata)
 
         let stylesheet = try await unzipContent(epubURL: epubURL, path: "stylesheet.css")
         let updatedOPF = try await unzipContent(epubURL: epubURL, path: "content.opf")
         let updatedNCX = try await unzipContent(epubURL: epubURL, path: "toc.ncx")
+        let firstPage = try await unzipContent(epubURL: epubURL, path: "text/part0000.html")
 
-        #expect(stylesheet.contains("max-height: 100vh"))
+        #expect(stylesheet.contains("overflow: hidden"))
         #expect(!stylesheet.contains("1072px"))
         #expect(updatedOPF.contains("page-progression-direction=\"rtl\""))
         #expect(updatedOPF.contains("vertical-rl"))
+        #expect(updatedOPF.contains(#"<meta property="rendition:layout">pre-paginated</meta>"#))
+        #expect(updatedOPF.contains(#"<meta name="fixed-layout" content="true"/>"#))
         #expect(updatedNCX.contains("Page 2"))
+        #expect(firstPage.contains(#"<meta name="viewport" content="width=1200, height=1800"/>"#))
+        #expect(firstPage.contains("preserveAspectRatio=\"xMidYMid meet\""))
     }
 
     private var opf: String {
