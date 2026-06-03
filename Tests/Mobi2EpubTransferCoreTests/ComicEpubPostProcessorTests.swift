@@ -69,6 +69,8 @@ struct ComicEpubPostProcessorTests {
         #expect(updatedOPF.contains("http://www.idpf.org/vocab/rendition/#"))
         #expect(updatedOPF.contains(#"<meta property="rendition:layout">pre-paginated</meta>"#))
         #expect(updatedOPF.contains(#"<meta name="fixed-layout" content="true"/>"#))
+        #expect(updatedOPF.contains(#"<meta name="cover" content="page-00001-image"/>"#))
+        #expect(updatedOPF.contains(#"id="page-00001-image" href="images/page-00001.jpg" media-type="image/jpeg" properties="cover-image""#))
         #expect(updatedOPF.contains(#"properties="rendition:layout-pre-paginated svg""#))
         #expect(appleDisplayOptions.contains(#"<option name="fixed-layout">true</option>"#))
         #expect(updatedNav.contains("page-00001"))

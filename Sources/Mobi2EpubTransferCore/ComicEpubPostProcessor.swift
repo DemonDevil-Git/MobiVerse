@@ -310,7 +310,8 @@ public struct ComicEpubPostProcessor {
 
     private func writeContentOPF(title: String, pages: [RebuiltPage], in oebpsURL: URL) throws {
         let imageItems = pages.map { page in
-            #"    <item id="\#(page.id)-image" href="images/\#(page.imageFileName)" media-type="\#(page.imageMediaType)"/>"#
+            let coverProperty = page == pages.first ? #" properties="cover-image""# : ""
+            return #"    <item id="\#(page.id)-image" href="images/\#(page.imageFileName)" media-type="\#(page.imageMediaType)"\#(coverProperty)/>"#
         }.joined(separator: "\n")
         let pageItems = pages.map { page in
             #"    <item id="\#(page.id)" href="pages/\#(page.htmlFileName)" media-type="application/xhtml+xml" properties="svg"/>"#
@@ -336,6 +337,7 @@ public struct ComicEpubPostProcessor {
             <meta name="book-type" content="comic"/>
             <meta name="zero-gutter" content="true"/>
             <meta name="zero-margin" content="true"/>
+            <meta name="cover" content="page-00001-image"/>
           </metadata>
           <manifest>
             <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
