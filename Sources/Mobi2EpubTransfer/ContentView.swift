@@ -1,11 +1,14 @@
 import Mobi2EpubTransferCore
 import SwiftUI
 import UniformTypeIdentifiers
+import WebKit
 
 struct ContentView: View {
     @StateObject private var viewModel = ConversionViewModel()
     @State private var isSidebarVisible = true
     @State private var isToolStatusPresented = false
+    @State private var previewWindowController: EpubPreviewWindowController?
+    @State private var previewError: PreviewError?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -51,6 +54,13 @@ struct ContentView: View {
             if case let .success(urls) = result {
                 viewModel.addFiles(urls)
             }
+        }
+        .alert(item: $previewError) { error in
+            Alert(
+                title: Text("Preview unavailable"),
+                message: Text(error.message),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 
@@ -138,6 +148,8 @@ struct ContentView: View {
                 isOutputMissing: viewModel.isOutputMissing(for: task),
                 canDelete: viewModel.canDelete(task)
             ) {
+                preview(task)
+            } revealOutput: {
                 viewModel.revealOutput(for: task)
             } openReport: {
                 viewModel.openReport(for: task)
@@ -179,6 +191,115 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private func preview(_ task: ConversionTask) {
+        guard let outputURL = task.outputURL else { return }
+        let extractionDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MobiVersePreview", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        Task {
+            do {
+                let book = try await EpubPreviewParser().parse(
+                    epubURL: outputURL,
+                    extractionDirectory: extractionDirectory
+                )
+                await MainActor.run {
+                    previewWindowController?.close()
+                    let controller = EpubPreviewWindowController(book: book)
+                    controller.onClose = {
+                        previewWindowController = nil
+                    }
+                    previewWindowController = controller
+                    controller.show()
+                }
+            } catch let error as EpubPreviewParserError {
+                try? FileManager.default.removeItem(at: extractionDirectory)
+                await MainActor.run {
+                    previewError = PreviewError(message: error.message)
+                }
+            } catch {
+                try? FileManager.default.removeItem(at: extractionDirectory)
+                await MainActor.run {
+                    previewError = PreviewError(message: error.localizedDescription)
+                }
+            }
+        }
+    }
+}
+
+private struct PreviewError: Identifiable {
+    let id = UUID()
+    let message: String
+}
+
+@MainActor
+private final class EpubPreviewWindowState: ObservableObject {
+    @Published var isFullScreen = false
+}
+
+@MainActor
+private final class EpubPreviewWindowController: NSWindowController, NSWindowDelegate {
+    let book: EpubPreviewBook
+    var onClose: (() -> Void)?
+    private let windowState = EpubPreviewWindowState()
+
+    init(book: EpubPreviewBook) {
+        self.book = book
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 980, height: 760),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = book.title
+        window.titleVisibility = .hidden
+        window.toolbarStyle = .unifiedCompact
+        window.collectionBehavior = [.fullScreenPrimary, .managed]
+        window.minSize = NSSize(width: 780, height: 620)
+        super.init(window: window)
+        window.delegate = self
+        window.contentView = NSHostingView(
+            rootView: EpubPreviewView(
+                book: book,
+                windowState: windowState,
+                toggleFullScreen: { [weak window] in
+                    guard let window else { return }
+                    window.makeKeyAndOrderFront(nil)
+                    NSApp.activate(ignoringOtherApps: true)
+                    DispatchQueue.main.async {
+                        window.toggleFullScreen(nil)
+                    }
+                },
+                close: { [weak window] in
+                    window?.close()
+                }
+            )
+        )
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func show() {
+        window?.center()
+        window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        try? FileManager.default.removeItem(at: book.extractionDirectory)
+        onClose?()
+    }
+
+    func windowDidEnterFullScreen(_ notification: Notification) {
+        windowState.isFullScreen = true
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        windowState.isFullScreen = false
     }
 }
 
@@ -260,6 +381,7 @@ private struct TaskRow: View {
     let task: ConversionTask
     let isOutputMissing: Bool
     let canDelete: Bool
+    let preview: () -> Void
     let revealOutput: () -> Void
     let openReport: () -> Void
     let deleteHistory: () -> Void
@@ -305,6 +427,13 @@ private struct TaskRow: View {
                 Spacer()
 
                 Button {
+                    preview()
+                } label: {
+                    Label("Preview", systemImage: "book.pages")
+                }
+                .disabled(!canPreview)
+
+                Button {
                     revealOutput()
                 } label: {
                     Label("Reveal", systemImage: "folder")
@@ -331,6 +460,217 @@ private struct TaskRow: View {
         }
         .padding(.vertical, 8)
         .opacity(isOutputMissing ? 0.48 : 1)
+    }
+
+    private var canPreview: Bool {
+        !isOutputMissing && (task.status == .succeeded || task.status == .succeededWithWarnings) && task.outputURL != nil
+    }
+}
+
+private struct EpubPreviewView: View {
+    let book: EpubPreviewBook
+    @ObservedObject var windowState: EpubPreviewWindowState
+    let toggleFullScreen: () -> Void
+    let close: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(book.title)
+                        .font(.headline)
+                        .lineLimit(1)
+                    Text(modeLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+
+                Button {
+                    toggleFullScreen()
+                } label: {
+                    Label(fullScreenButtonLabel, systemImage: fullScreenButtonIcon)
+                        .frame(width: 30, height: 26)
+                }
+                .buttonStyle(.bordered)
+                .help(fullScreenButtonLabel)
+
+                Button {
+                    close()
+                } label: {
+                    Label("Close Preview", systemImage: "xmark")
+                        .frame(width: 30, height: 26)
+                }
+                .buttonStyle(.bordered)
+                .help("Close preview")
+            }
+            .labelStyle(.iconOnly)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.bar)
+
+            switch book.mode {
+            case .imagePages(let pages):
+                ComicImagePreview(pages: pages)
+            case .web(let startURL):
+                EpubWebPreview(startURL: startURL, readAccessURL: book.contentRootDirectory)
+            }
+        }
+    }
+
+    private var modeLabel: String {
+        switch book.mode {
+        case .imagePages(let pages):
+            "\(pages.count) image pages"
+        case .web:
+            "Text EPUB preview"
+        }
+    }
+
+    private var fullScreenButtonLabel: String {
+        windowState.isFullScreen ? "Exit full screen" : "Enter full screen"
+    }
+
+    private var fullScreenButtonIcon: String {
+        windowState.isFullScreen
+            ? "arrow.down.right.and.arrow.up.left"
+            : "arrow.up.left.and.arrow.down.right"
+    }
+}
+
+private struct ComicImagePreview: View {
+    let pages: [EpubImagePreviewPage]
+    @State private var pageIndex = 0
+    @State private var zoom = 1.0
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Color.black
+                if let page = pages[safe: pageIndex] {
+                    GeometryReader { proxy in
+                        ScrollView([.horizontal, .vertical]) {
+                            EpubImagePage(page: page)
+                                .frame(
+                                    width: max(1, proxy.size.width * zoom),
+                                    height: max(1, proxy.size.height * zoom)
+                                )
+                                .padding(zoom > 1 ? 20 : 0)
+                        }
+                    }
+                }
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    moveBackward()
+                } label: {
+                    Label("Previous", systemImage: "chevron.left")
+                }
+                .disabled(pageIndex == 0)
+
+                Slider(
+                    value: Binding(
+                        get: { Double(pageIndex) },
+                        set: { pageIndex = min(max(Int($0.rounded()), 0), max(pages.count - 1, 0)) }
+                    ),
+                    in: 0...Double(max(pages.count - 1, 0))
+                )
+                .disabled(pages.count <= 1)
+
+                Text("\(pageIndex + 1) / \(pages.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 76)
+
+                Button {
+                    moveForward()
+                } label: {
+                    Label("Next", systemImage: "chevron.right")
+                }
+                .disabled(pageIndex >= pages.count - 1)
+
+                Divider()
+                    .frame(height: 18)
+
+                Button {
+                    zoom = max(0.5, zoom - 0.1)
+                } label: {
+                    Label("Zoom out", systemImage: "minus.magnifyingglass")
+                }
+
+                Button {
+                    zoom = 1.0
+                } label: {
+                    Text("Fit")
+                }
+
+                Button {
+                    zoom = min(3.0, zoom + 0.1)
+                } label: {
+                    Label("Zoom in", systemImage: "plus.magnifyingglass")
+                }
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .padding(12)
+            .background(.bar)
+        }
+    }
+
+    private func moveBackward() {
+        pageIndex = max(0, pageIndex - 1)
+    }
+
+    private func moveForward() {
+        pageIndex = min(pages.count - 1, pageIndex + 1)
+    }
+}
+
+private struct EpubImagePage: View {
+    let page: EpubImagePreviewPage
+    @State private var image: NSImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(CGSize(width: page.width, height: page.height), contentMode: .fit)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+            }
+        }
+        .task(id: page.id) {
+            image = NSImage(contentsOf: page.imageURL)
+        }
+    }
+}
+
+private struct EpubWebPreview: NSViewRepresentable {
+    let startURL: URL
+    let readAccessURL: URL
+
+    func makeNSView(context: Context) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        let view = WKWebView(frame: .zero, configuration: configuration)
+        view.setValue(false, forKey: "drawsBackground")
+        return view
+    }
+
+    func updateNSView(_ view: WKWebView, context: Context) {
+        guard view.url != startURL else { return }
+        view.loadFileURL(startURL, allowingReadAccessTo: readAccessURL)
+    }
+}
+
+private extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 
