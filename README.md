@@ -1,10 +1,20 @@
 # MobiVerse
 
-**Convert Kindle books, comic archives, and PDF comics into polished EPUBs for Apple Books and modern EPUB readers.**
+**A native macOS converter for turning Kindle books, comic archives, and PDF comics into polished EPUBs for Apple Books and modern EPUB readers.**
 
-MobiVerse is a native macOS app built for illustrated reading. It converts MOBI, AZW, AZW3, CBZ, CBR, ZIP, and PDF source files into EPUB, then rebuilds comic-style output as clean fixed-layout pages so manga and image-heavy books feel stable, centered, and smooth.
+<p align="center">
+  <img src="Docs/hero.svg" alt="MobiVerse converts illustrated books into Apple Books-friendly EPUBs" width="100%">
+</p>
 
-[Download MobiVerse for macOS](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-1.0.0.dmg)
+<p align="center">
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-1.0.0.dmg"><img src="https://img.shields.io/badge/Download%20for%20macOS-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse for macOS"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=Latest%20release" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
+</p>
+
+<p align="center">
+  <strong>No Calibre installation required for readers.</strong> Best for manga, illustrated Kindle books, comic archives, and Apple Books-friendly EPUB output.
+</p>
 
 ## Why MobiVerse
 
@@ -23,6 +33,10 @@ MobiVerse is a native macOS app built for illustrated reading. It converts MOBI,
 - **Batch conversion with history**  
   Drag in multiple books, track progress, reveal outputs, open reports, and keep conversion history across launches.
 
+<p align="center">
+  <img src="Docs/apple-books-comparison.svg" alt="Apple Books comic layout before and after MobiVerse processing" width="100%">
+</p>
+
 ## Supported Inputs
 
 | Format | Use case |
@@ -36,7 +50,7 @@ MobiVerse does not remove DRM. Protected or unreadable files are reported clearl
 
 ## Install
 
-1. Download the latest DMG from [Releases](https://github.com/DemonDevil-Git/MobiVerse/releases).
+1. Download the latest DMG: [MobiVerse-1.0.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-1.0.0.dmg).
 2. Open `MobiVerse-1.0.0.dmg`.
 3. Drag `MobiVerse.app` into `Applications`.
 4. Launch MobiVerse and drop supported files into the window.
@@ -57,6 +71,36 @@ The built-in preview focuses on comic/image-page EPUBs:
 - current-page recentering after fullscreen/window size changes
 
 Text EPUBs fall back to a simple WebView preview.
+
+## Roadmap
+
+- Signed and notarized public DMG.
+- Real product demo GIF and Apple Books comparison screenshots.
+- Optional EPUBCheck bundle for richer validation reports.
+- More explicit reading-direction controls for manga and western comics.
+- Better metadata editing for title, author, cover, and series fields.
+
+## FAQ
+
+### Do readers need to install Calibre?
+
+No. Release builds bundle Calibre, so readers can convert supported files after installing MobiVerse.
+
+### Does MobiVerse remove DRM?
+
+No. MobiVerse only converts DRM-free or otherwise readable files. Protected files are reported as conversion failures.
+
+### Why does macOS say Apple cannot verify the app?
+
+The current public DMG is not Apple Developer ID notarized yet. A notarized build is on the release roadmap.
+
+### Where are converted EPUB files saved?
+
+MobiVerse writes EPUBs next to the original source file and avoids overwriting existing files.
+
+### Is my book uploaded anywhere?
+
+No. Conversion runs locally on your Mac.
 
 ## Privacy
 

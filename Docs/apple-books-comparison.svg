@@ -1,0 +1,29 @@
+<svg width="1200" height="520" viewBox="0 0 1200 520" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Apple Books layout comparison</title>
+  <desc id="desc">A before and after comparison showing unstable comic page layout before processing and centered fixed-layout pages after MobiVerse processing.</desc>
+  <defs>
+    <filter id="shadow" x="90" y="44" width="1020" height="396" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="22" stdDeviation="18" flood-color="#0F172A" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="520" rx="34" fill="#F8FAFC"/>
+  <text x="600" y="72" text-anchor="middle" fill="#111827" font-family="Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="30" font-weight="800">Apple Books comic layout, rebuilt for stable reading</text>
+  <g filter="url(#shadow)">
+    <rect x="120" y="112" width="440" height="300" rx="24" fill="#FFFFFF"/>
+    <text x="340" y="158" text-anchor="middle" fill="#B91C1C" font-family="Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="22" font-weight="800">Before</text>
+    <rect x="214" y="184" width="252" height="170" rx="8" fill="#F5EBD8" stroke="#E2D5BC"/>
+    <rect x="258" y="210" width="166" height="110" rx="3" fill="#111827"/>
+    <path d="M258 224h166M258 256h166M258 288h166" stroke="#F5EBD8" stroke-width="7"/>
+    <path d="M222 372h236" stroke="#EF4444" stroke-width="8" stroke-linecap="round"/>
+    <text x="340" y="393" text-anchor="middle" fill="#64748B" font-family="Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="15">oversized, stretched, or reflow-prone pages</text>
+    <rect x="640" y="112" width="440" height="300" rx="24" fill="#FFFFFF"/>
+    <text x="860" y="158" text-anchor="middle" fill="#047857" font-family="Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="22" font-weight="800">After MobiVerse</text>
+    <rect x="766" y="184" width="188" height="170" rx="8" fill="#F5EBD8" stroke="#E2D5BC"/>
+    <rect x="790" y="204" width="140" height="130" rx="3" fill="#111827"/>
+    <path d="M790 222h140M790 258h140M790 294h140" stroke="#F5EBD8" stroke-width="6"/>
+    <circle cx="860" cy="371" r="11" fill="#10B981"/>
+    <path d="M854 371l5 5 10-13" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="860" y="393" text-anchor="middle" fill="#64748B" font-family="Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="15">centered fixed-layout pages with stable aspect ratio</text>
+  </g>
+  <text x="600" y="472" text-anchor="middle" fill="#475569" font-family="Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18">Designed for manga, comic archives, illustrated MOBI/AZW books, and PDF comics.</text>
+</svg>
