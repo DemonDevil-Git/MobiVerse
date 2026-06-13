@@ -43,6 +43,8 @@ MobiVerse does not remove DRM. Protected or unreadable files are reported clearl
 
 Converted EPUB files are written next to the original source file without overwriting existing EPUBs.
 
+The release app bundles Calibre, so readers do not need to install Calibre separately.
+
 If macOS shows an "Apple could not verify MobiVerse" warning, that DMG was built without Apple Developer ID notarization. Public releases should be signed, notarized, and stapled before upload.
 
 ## Preview
@@ -66,7 +68,7 @@ MobiVerse runs locally on your Mac. Your books are not uploaded to a server by t
 
 - macOS 14 or later
 - Swift 6 / Xcode 26 or later
-- Calibre installed at `/Applications/calibre.app` when building a distributable app
+- A local Calibre app only on the build machine, used as the source copied into distributable app bundles. Defaults to `/Applications/calibre.app`; override with `CALIBRE_APP=/path/to/calibre.app`.
 - Optional: `epubcheck` in `PATH` or `EPUBCHECK_JAR=/path/to/epubcheck.jar`
 
 ### Run from source
