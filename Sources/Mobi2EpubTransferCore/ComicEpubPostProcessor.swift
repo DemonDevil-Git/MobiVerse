@@ -79,9 +79,9 @@ public struct ComicEpubPostProcessor {
             throw ComicPostProcessError.unzipFailed(unzipResult.output)
         }
 
-        let imageFiles = try sortedImageFiles(in: workingDirectory.appendingPathComponent("images"))
+        let imageFiles = try discoveredImageFiles(in: workingDirectory)
         try await normalizeLargeImages(imageFiles)
-        let title = title(fromOPFAt: workingDirectory.appendingPathComponent("content.opf"))
+        let title = title(fromOPFAt: packageDocumentURL(in: workingDirectory))
             ?? epubURL.deletingPathExtension().lastPathComponent
 
         let rebuiltDirectory = fileManager.temporaryDirectory
@@ -684,6 +684,53 @@ public struct ComicEpubPostProcessor {
         return try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .filter { ["jpeg", "jpg", "png", "webp"].contains($0.pathExtension.lowercased()) }
             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+    }
+
+    private func discoveredImageFiles(in directory: URL) throws -> [URL] {
+        let rootImages = try sortedImageFiles(in: directory.appendingPathComponent("images"))
+        if !rootImages.isEmpty {
+            return rootImages
+        }
+
+        guard let enumerator = fileManager.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        return enumerator
+            .compactMap { $0 as? URL }
+            .filter { url in
+                let path = url.path
+                let pathExtension = url.pathExtension.lowercased()
+                return ["jpeg", "jpg", "png", "webp"].contains(pathExtension)
+                    && !path.contains("/__MACOSX/")
+                    && !path.contains("/META-INF/")
+            }
+            .sorted { lhs, rhs in
+                lhs.path.localizedStandardCompare(rhs.path) == .orderedAscending
+            }
+    }
+
+    private func packageDocumentURL(in directory: URL) -> URL {
+        let containerURL = directory.appendingPathComponent("META-INF/container.xml")
+        if
+            let containerXML = try? String(contentsOf: containerURL, encoding: .utf8),
+            let regex = try? NSRegularExpression(pattern: #"full-path=["']([^"']+)["']"#),
+            let match = regex.firstMatch(in: containerXML, range: NSRange(containerXML.startIndex..<containerXML.endIndex, in: containerXML)),
+            let range = Range(match.range(at: 1), in: containerXML)
+        {
+            return directory.appendingPathComponent(String(containerXML[range]))
+        }
+
+        let candidates = [
+            directory.appendingPathComponent("content.opf"),
+            directory.appendingPathComponent("OEBPS/content.opf")
+        ]
+        return candidates.first { fileManager.fileExists(atPath: $0.path) }
+            ?? directory.appendingPathComponent("content.opf")
     }
 
     private func normalizedImageExtension(for url: URL) -> String {

@@ -69,7 +69,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("MobiVerse")
                     .font(.title2.weight(.semibold))
-                Text("Convert MOBI, AZW, and AZW3 books into elegant EPUBs for comics and illustrated reading.")
+                Text("Convert ebooks, comic archives, and PDF comics into elegant EPUBs for illustrated reading.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -120,7 +120,7 @@ struct ContentView: View {
             Image(systemName: "books.vertical")
                 .font(.system(size: 34))
                 .foregroundStyle(.secondary)
-            Text("Drop MOBI, AZW, or AZW3 files here")
+            Text("Drop MOBI, AZW, AZW3, CBZ, CBR, ZIP, or PDF files here")
                 .font(.headline)
             Text("EPUB files are written beside the original book without overwriting existing files.")
                 .font(.callout)
@@ -169,11 +169,7 @@ struct ContentView: View {
     }
 
     private var allowedContentTypes: [UTType] {
-        [
-            UTType(filenameExtension: "mobi"),
-            UTType(filenameExtension: "azw"),
-            UTType(filenameExtension: "azw3")
-        ].compactMap { $0 }
+        SupportedInputFormat.all.compactMap { UTType(filenameExtension: $0.fileExtension) }
     }
 
     private func loadDroppedFiles(from providers: [NSItemProvider]) {
@@ -240,7 +236,6 @@ private final class EpubPreviewWindowState: ObservableObject {
 
 @MainActor
 private final class PreviewGestureRouter: ObservableObject {
-    @Published var diagnosticText = "Input: waiting"
     var canMoveBackward = false
     var canMoveForward = false
     var handleSwipeChanged: ((Double) -> Void)?
@@ -267,6 +262,9 @@ private final class PreviewGestureRouter: ObservableObject {
             zoomBy?(Double(event.magnification) * 1.8)
             return nil
         case .swipe:
+            guard handleSwipeChanged != nil, handleSwipeEnded != nil else {
+                return event
+            }
             handleSwipeEvent(event)
             return nil
         case .scrollWheel:
@@ -281,7 +279,6 @@ private final class PreviewGestureRouter: ObservableObject {
     }
 
     func handleMagnify(_ event: NSEvent) {
-        diagnosticText = String(format: "Input: magnify %.3f", Double(event.magnification))
         zoomBy?(Double(event.magnification) * 1.8)
     }
 
@@ -296,12 +293,6 @@ private final class PreviewGestureRouter: ObservableObject {
         guard isTrackingHorizontalSwipe || isHorizontalPageSwipe(event) else {
             return false
         }
-        diagnosticText = String(
-            format: "Input: scroll dx %.2f dy %.2f phase %@",
-            Double(event.scrollingDeltaX),
-            Double(event.scrollingDeltaY),
-            phaseDescription(event.phase)
-        )
 
         if isTrackingHorizontalSwipe && (event.momentumPhase == .began || event.momentumPhase == .changed) {
             finishHorizontalSwipe()
@@ -328,7 +319,6 @@ private final class PreviewGestureRouter: ObservableObject {
 
     private func handleSwipeEvent(_ event: NSEvent) {
         let syntheticDelta = event.deltaX > 0 ? -220.0 : 220.0
-        diagnosticText = String(format: "Input: swipe dx %.2f -> %.0f", Double(event.deltaX), syntheticDelta)
         handleSwipeChanged?(syntheticDelta)
         handleSwipeEnded?(syntheticDelta)
     }
@@ -361,7 +351,6 @@ private final class PreviewGestureRouter: ObservableObject {
         swipeEndWorkItem?.cancel()
         swipeEndWorkItem = nil
         guard isTrackingHorizontalSwipe else { return }
-        diagnosticText = String(format: "Input: end %.2f", horizontalSwipeDelta)
         handleSwipeEnded?(horizontalSwipeDelta)
         horizontalSwipeDelta = 0
         isTrackingHorizontalSwipe = false
@@ -374,17 +363,6 @@ private final class PreviewGestureRouter: ObservableObject {
         }
         swipeEndWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + swipeEndFallbackDelay, execute: workItem)
-    }
-
-    private func phaseDescription(_ phase: NSEvent.Phase) -> String {
-        switch phase {
-        case .began: "began"
-        case .changed: "changed"
-        case .ended: "ended"
-        case .cancelled: "cancelled"
-        case .mayBegin: "mayBegin"
-        default: "none"
-        }
     }
 }
 
@@ -770,30 +748,39 @@ private struct ComicImagePreview: View {
             GeometryReader { proxy in
                 ZStack {
                     Color.black
-                    ScrollView(.horizontal) {
-                        LazyHStack(spacing: 0) {
-                            ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
-                                pageCanvas(for: page, in: proxy.size)
-                                    .frame(width: proxy.size.width, height: proxy.size.height)
-                                    .id(index)
-                                    .scrollTransition(.interactive, axis: .horizontal) { content, phase in
-                                        content
-                                            .opacity(phase.isIdentity ? 1 : 0.92)
-                                            .scaleEffect(phase.isIdentity ? 1 : 0.985)
-                                    }
+                    ScrollViewReader { scrollProxy in
+                        ScrollView(.horizontal) {
+                            LazyHStack(spacing: 0) {
+                                ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
+                                    pageCanvas(for: page, in: proxy.size)
+                                        .frame(width: proxy.size.width, height: proxy.size.height)
+                                        .id(index)
+                                        .scrollTransition(.interactive, axis: .horizontal) { content, phase in
+                                            content
+                                                .opacity(phase.isIdentity ? 1 : 0.92)
+                                                .scaleEffect(phase.isIdentity ? 1 : 0.985)
+                                        }
+                                }
                             }
+                            .scrollTargetLayout()
                         }
-                        .scrollTargetLayout()
-                    }
-                    .scrollIndicators(.hidden)
-                    .scrollTargetBehavior(.paging)
-                    .scrollPosition(id: $visiblePageIndex)
-                    .onAppear {
-                        visiblePageIndex = pageIndex
-                    }
-                    .onChange(of: visiblePageIndex) { _, newValue in
-                        guard let newValue else { return }
-                        pageIndex = min(max(newValue, 0), max(pages.count - 1, 0))
+                        .scrollIndicators(.hidden)
+                        .scrollTargetBehavior(.paging)
+                        .scrollPosition(id: $visiblePageIndex)
+                        .onAppear {
+                            visiblePageIndex = pageIndex
+                            recenterCurrentPage(with: scrollProxy)
+                        }
+                        .onChange(of: visiblePageIndex) { _, newValue in
+                            guard let newValue else { return }
+                            pageIndex = min(max(newValue, 0), max(pages.count - 1, 0))
+                        }
+                        .onChange(of: proxy.size) { _, _ in
+                            recenterCurrentPage(with: scrollProxy)
+                        }
+                        .onChange(of: zoom) { _, _ in
+                            recenterCurrentPage(with: scrollProxy)
+                        }
                     }
                 }
             }
@@ -882,6 +869,18 @@ private struct ComicImagePreview: View {
 
     private func zoomBy(_ delta: Double) {
         zoom = min(3.0, max(0.5, zoom + delta))
+    }
+
+    private func recenterCurrentPage(with scrollProxy: ScrollViewProxy) {
+        let currentPageIndex = min(max(pageIndex, 0), max(pages.count - 1, 0))
+        DispatchQueue.main.async {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                visiblePageIndex = currentPageIndex
+                scrollProxy.scrollTo(currentPageIndex, anchor: .center)
+            }
+        }
     }
 
     private func configureGestureRouter() {

@@ -30,6 +30,20 @@ struct FileOutputPolicyTests {
     }
 
     @Test
+    func outputURLSupportsComicArchiveAndPDFInputs() throws {
+        let directory = try TemporaryDirectory()
+        for fileExtension in ["cbz", "cbr", "zip", "pdf"] {
+            let inputURL = directory.url.appendingPathComponent("Comic.\(fileExtension)")
+            FileManager.default.createFile(atPath: inputURL.path, contents: Data())
+
+            let outputURL = try FileOutputPolicy().epubOutputURL(for: inputURL)
+
+            #expect(outputURL.pathExtension == "epub")
+            #expect(outputURL.deletingPathExtension().lastPathComponent.hasPrefix("Comic"))
+        }
+    }
+
+    @Test
     func unsupportedInputExtensionThrows() throws {
         let directory = try TemporaryDirectory()
         let inputURL = directory.url.appendingPathComponent("Notes.txt")

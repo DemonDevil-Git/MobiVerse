@@ -13,9 +13,8 @@ public struct FileOutputPolicy {
     }
 
     public func epubOutputURL(for inputURL: URL) throws -> URL {
-        let supportedExtensions = ["mobi", "azw", "azw3"]
         let inputExtension = inputURL.pathExtension.lowercased()
-        guard supportedExtensions.contains(inputExtension) else {
+        guard SupportedInputFormat.supportedExtensions.contains(inputExtension) else {
             throw FileOutputPolicyError.unsupportedInputExtension(inputExtension)
         }
 

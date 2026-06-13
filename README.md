@@ -1,6 +1,6 @@
 # MobiVerse
 
-MobiVerse is a native macOS SwiftUI app for converting MOBI, AZW, and AZW3 ebooks into EPUB files. The first version prioritizes illustrated books and comics by keeping the workflow conservative: Calibre performs the conversion, EPUBCheck validates the result, and output files are written next to the original book without overwriting existing EPUBs.
+MobiVerse is a native macOS SwiftUI app for converting MOBI, AZW, AZW3, CBZ, CBR, ZIP, and PDF books into EPUB files. The first version prioritizes illustrated books and comics by keeping the workflow conservative: Calibre performs the conversion, EPUBCheck validates the result, and output files are written next to the original book without overwriting existing EPUBs.
 
 ## Requirements
 
@@ -58,8 +58,9 @@ requirements for the bundled Calibre version.
 
 ## Current Scope
 
-- Drag or choose `.mobi`, `.azw`, and `.azw3` files.
+- Drag or choose `.mobi`, `.azw`, `.azw3`, `.cbz`, `.cbr`, `.zip`, and `.pdf` files.
 - Convert each file with Calibre into a same-folder `.epub` output.
+- Treat `.zip` comic archives as `.cbz` during conversion so Calibre reads them as comics.
 - Prefer bundled Calibre, with system Calibre as a development fallback.
 - Optimize comic EPUB output after conversion by removing fixed image sizing, removing page margins, adding right-to-left manga metadata, and generating page-range TOC entries.
 - Classify common conversion failures, including likely DRM-protected files.

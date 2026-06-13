@@ -47,8 +47,13 @@ public struct ConverterService: Sendable {
             )
         }
 
+        let preparedInput = try prepareInputForCalibre(inputURL)
+        defer {
+            preparedInput.cleanup()
+        }
+
         let arguments = [
-            inputURL.path,
+            preparedInput.url.path,
             outputURL.path,
             "--preserve-cover-aspect-ratio",
             "--disable-font-rescaling",
@@ -75,6 +80,22 @@ public struct ConverterService: Sendable {
         return ConversionRunResult(outputURL: outputURL, log: result.output)
     }
 
+    private func prepareInputForCalibre(_ inputURL: URL) throws -> PreparedInput {
+        guard SupportedInputFormat.format(for: inputURL)?.isZipComicArchive == true else {
+            return PreparedInput(url: inputURL)
+        }
+
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MobiVerseZIPComicInput", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        let cbzURL = temporaryDirectory
+            .appendingPathComponent(inputURL.deletingPathExtension().lastPathComponent)
+            .appendingPathExtension("cbz")
+        try FileManager.default.copyItem(at: inputURL, to: cbzURL)
+        return PreparedInput(url: cbzURL, cleanupURL: temporaryDirectory)
+    }
+
     public static func classifyFailure(log: String) -> ConversionFailureKind {
         let lowercasedLog = log.lowercased()
         let drmMarkers = [
@@ -94,7 +115,12 @@ public struct ConverterService: Sendable {
             "could not open",
             "bad magic",
             "corrupt",
-            "truncated"
+            "truncated",
+            "unknown format",
+            "unsupported format",
+            "no suitable input plugin",
+            "not a rar file",
+            "unrar"
         ]
         if inputMarkers.contains(where: { lowercasedLog.contains($0) }) {
             return .inputUnreadable
@@ -157,5 +183,20 @@ public struct ConverterService: Sendable {
         case .conversionFailed:
             "Calibre could not convert this file. Review the conversion log for details."
         }
+    }
+}
+
+private struct PreparedInput {
+    let url: URL
+    let cleanupURL: URL?
+
+    init(url: URL, cleanupURL: URL? = nil) {
+        self.url = url
+        self.cleanupURL = cleanupURL
+    }
+
+    func cleanup() {
+        guard let cleanupURL else { return }
+        try? FileManager.default.removeItem(at: cleanupURL)
     }
 }

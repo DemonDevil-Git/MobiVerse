@@ -27,7 +27,7 @@ final class ConversionViewModel: ObservableObject {
     }
 
     var acceptedExtensions: Set<String> {
-        ["mobi", "azw", "azw3"]
+        SupportedInputFormat.supportedExtensions
     }
 
     var canConvert: Bool {
@@ -212,7 +212,7 @@ final class ConversionViewModel: ObservableObject {
     private func message(for error: FileOutputPolicyError) -> String {
         switch error {
         case .unsupportedInputExtension:
-            "Only MOBI, AZW, and AZW3 files are supported."
+            "Only \(SupportedInputFormat.displayList) files are supported."
         case .missingParentDirectory:
             "The source file folder could not be resolved."
         }
