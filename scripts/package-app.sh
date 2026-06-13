@@ -6,6 +6,8 @@ APP_NAME="MobiVerse"
 EXECUTABLE_NAME="Mobi2EpubTransfer"
 CALIBRE_APP="${CALIBRE_APP:-/Applications/calibre.app}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER:-com.mobiverse.app}"
+CODESIGN_ENTITLEMENTS="${CODESIGN_ENTITLEMENTS:-}"
 PACKAGE_WITHOUT_CALIBRE="${PACKAGE_WITHOUT_CALIBRE:-0}"
 EPUBCHECK_JAR="${EPUBCHECK_JAR:-}"
 
@@ -74,7 +76,7 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <key>CFBundleExecutable</key>
   <string>$EXECUTABLE_NAME</string>
   <key>CFBundleIdentifier</key>
-  <string>com.local.MobiVerse</string>
+  <string>$BUNDLE_IDENTIFIER</string>
   <key>CFBundleDisplayName</key>
   <string>$APP_NAME</string>
   <key>CFBundleInfoDictionaryVersion</key>
@@ -98,7 +100,25 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 PLIST
 
 if command -v codesign >/dev/null 2>&1; then
-  codesign --force --deep --sign "$SIGN_IDENTITY" "$APP_DIR"
+  if [[ "$SIGN_IDENTITY" == "-" ]]; then
+    echo "Code signing app with ad-hoc identity. This build is for local development only."
+    codesign --force --deep --sign "$SIGN_IDENTITY" "$APP_DIR"
+  else
+    if [[ -n "$CODESIGN_ENTITLEMENTS" && ! -f "$CODESIGN_ENTITLEMENTS" ]]; then
+      echo "CODESIGN_ENTITLEMENTS does not exist: $CODESIGN_ENTITLEMENTS" >&2
+      exit 1
+    fi
+
+    sign_args=(--force --deep --timestamp --options runtime --sign "$SIGN_IDENTITY")
+    if [[ -n "$CODESIGN_ENTITLEMENTS" ]]; then
+      sign_args+=(--entitlements "$CODESIGN_ENTITLEMENTS")
+    fi
+
+    echo "Code signing app with Developer ID identity: $SIGN_IDENTITY"
+    codesign "${sign_args[@]}" "$APP_DIR"
+  fi
+
+  codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 fi
 
 echo "Packaged app: $APP_DIR"

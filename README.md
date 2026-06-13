@@ -43,6 +43,8 @@ MobiVerse does not remove DRM. Protected or unreadable files are reported clearl
 
 Converted EPUB files are written next to the original source file without overwriting existing EPUBs.
 
+If macOS shows an "Apple could not verify MobiVerse" warning, that DMG was built without Apple Developer ID notarization. Public releases should be signed, notarized, and stapled before upload.
+
 ## Preview
 
 The built-in preview focuses on comic/image-page EPUBs:
@@ -98,6 +100,33 @@ The generated installer image is written to:
 ```text
 .build/MobiVerse-1.0.0.dmg
 ```
+
+Development builds use ad-hoc signing by default. They are suitable for local testing, but macOS Gatekeeper will block them after download from the internet.
+
+### Package a notarized release
+
+Public macOS distribution requires an Apple Developer Program account, a `Developer ID Application` certificate in Keychain, and Apple notarization credentials.
+
+Store notarization credentials once:
+
+```sh
+xcrun notarytool store-credentials mobiverse-notary \
+  --apple-id "you@example.com" \
+  --team-id "TEAMID" \
+  --password "app-specific-password"
+```
+
+Then build the release DMG:
+
+```sh
+SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+BUNDLE_IDENTIFIER="com.yourcompany.mobiverse" \
+NOTARIZE=1 \
+NOTARYTOOL_PROFILE="mobiverse-notary" \
+scripts/package-dmg.sh
+```
+
+The script signs the app with hardened runtime and timestamp, signs the DMG, submits it to Apple notarization, staples the ticket, and validates the final DMG.
 
 ### Bundle EPUBCheck
 
