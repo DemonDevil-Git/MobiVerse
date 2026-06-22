@@ -3,7 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="MobiVerse"
-VERSION="${VERSION:-1.0.0}"
+VERSION="${VERSION:-2.0.0}"
+APP_VERSION="${APP_VERSION:-$VERSION}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 SIGN_DMG_IDENTITY="${SIGN_DMG_IDENTITY:-$SIGN_IDENTITY}"
 NOTARIZE="${NOTARIZE:-0}"
@@ -16,7 +17,7 @@ DMG_DIR="$ROOT_DIR/.build/dmg"
 DMG_PATH="$ROOT_DIR/.build/$APP_NAME-$VERSION.dmg"
 VOLUME_NAME="$APP_NAME $VERSION"
 
-"$ROOT_DIR/scripts/package-app.sh"
+APP_VERSION="$APP_VERSION" "$ROOT_DIR/scripts/package-app.sh"
 
 rm -rf "$DMG_DIR" "$DMG_PATH"
 mkdir -p "$DMG_DIR"

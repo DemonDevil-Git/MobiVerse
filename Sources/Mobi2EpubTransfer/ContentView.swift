@@ -5,10 +5,12 @@ import WebKit
 
 struct ContentView: View {
     @StateObject private var viewModel = ConversionViewModel()
+    @ObservedObject private var openBookRouter = OpenBookRouter.shared
     @State private var isSidebarVisible = true
     @State private var isToolStatusPresented = false
     @State private var previewWindowController: EpubPreviewWindowController?
     @State private var previewError: PreviewError?
+    @State private var readingPreparation: ReadingPreparation?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -52,7 +54,7 @@ struct ContentView: View {
             allowsMultipleSelection: true
         ) { result in
             if case let .success(urls) = result {
-                viewModel.addFiles(urls)
+                openBooks(urls)
             }
         }
         .alert(item: $previewError) { error in
@@ -61,6 +63,23 @@ struct ContentView: View {
                 message: Text(error.message),
                 dismissButton: .default(Text("OK"))
             )
+        }
+        .overlay {
+            if let readingPreparation {
+                ReadingPreparationOverlay(preparation: readingPreparation)
+                    .transition(.opacity.combined(with: .scale(scale: 0.985)))
+            }
+        }
+        .animation(.easeInOut(duration: 0.18), value: readingPreparation)
+        .onChange(of: viewModel.tasks) { _, _ in
+            updateReadingPreparation()
+        }
+        .onOpenURL { url in
+            openBooks([url])
+        }
+        .onChange(of: openBookRouter.request) { _, request in
+            guard let request else { return }
+            openBooks(request.urls)
         }
     }
 
@@ -120,9 +139,9 @@ struct ContentView: View {
             Image(systemName: "books.vertical")
                 .font(.system(size: 34))
                 .foregroundStyle(.secondary)
-            Text("Drop MOBI, AZW, AZW3, CBZ, CBR, ZIP, or PDF files here")
+            Text("Drop EPUB, MOBI, AZW, AZW3, CBZ, CBR, ZIP, or PDF files here")
                 .font(.headline)
-            Text("EPUB files are written beside the original book without overwriting existing files.")
+            Text("EPUB files open instantly. Other supported books convert silently, then open for reading.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -169,7 +188,8 @@ struct ContentView: View {
     }
 
     private var allowedContentTypes: [UTType] {
-        SupportedInputFormat.all.compactMap { UTType(filenameExtension: $0.fileExtension) }
+        let conversionTypes = SupportedInputFormat.all.compactMap { UTType(filenameExtension: $0.fileExtension) }
+        return conversionTypes + [UTType(filenameExtension: "epub")].compactMap { $0 }
     }
 
     private func loadDroppedFiles(from providers: [NSItemProvider]) {
@@ -183,7 +203,7 @@ struct ContentView: View {
                 }
 
                 Task { @MainActor in
-                    viewModel.addFiles([url])
+                    openBooks([url])
                 }
             }
         }
@@ -191,6 +211,104 @@ struct ContentView: View {
 
     private func preview(_ task: ConversionTask) {
         guard let outputURL = task.outputURL else { return }
+        openEpubPreview(outputURL)
+    }
+
+    private func openBooks(_ urls: [URL]) {
+        for url in urls {
+            if isEpub(url) {
+                readingPreparation = ReadingPreparation(
+                    sourceTitle: url.deletingPathExtension().lastPathComponent,
+                    message: "Opening EPUB preview",
+                    progress: nil
+                )
+                openEpubPreview(url)
+                continue
+            }
+
+            guard viewModel.acceptedExtensions.contains(url.pathExtension.lowercased()) else { continue }
+            guard let task = viewModel.addFiles([url]).first else { continue }
+
+            if let outputURL = task.outputURL,
+               !viewModel.isOutputMissing(for: task),
+               task.status == .succeeded || task.status == .succeededWithWarnings {
+                readingPreparation = ReadingPreparation(
+                    taskID: task.id,
+                    sourceTitle: task.inputURL.deletingPathExtension().lastPathComponent,
+                    message: "Opening converted EPUB",
+                    progress: 1
+                )
+                openEpubPreview(outputURL)
+            } else {
+                readingPreparation = ReadingPreparation(
+                    taskID: task.id,
+                    sourceTitle: task.inputURL.deletingPathExtension().lastPathComponent,
+                    message: readingMessage(for: task),
+                    progress: task.progress
+                )
+
+                if task.status == .failed || viewModel.isOutputMissing(for: task) {
+                    viewModel.requeueTask(task)
+                }
+            }
+        }
+    }
+
+    private func updateReadingPreparation() {
+        guard
+            let preparation = readingPreparation,
+            let taskID = preparation.taskID,
+            let task = viewModel.task(withID: taskID)
+        else {
+            return
+        }
+
+        switch task.status {
+        case .queued, .checkingTools, .converting, .validating:
+            readingPreparation = preparation.updated(
+                message: readingMessage(for: task),
+                progress: task.progress
+            )
+        case .succeeded, .succeededWithWarnings:
+            guard let outputURL = task.outputURL, !viewModel.isOutputMissing(for: task) else {
+                readingPreparation = nil
+                previewError = PreviewError(message: "The converted EPUB is no longer available at the saved output path.")
+                return
+            }
+            readingPreparation = ReadingPreparation(
+                sourceTitle: preparation.sourceTitle,
+                message: "Opening EPUB preview",
+                progress: 1
+            )
+            openEpubPreview(outputURL)
+        case .failed:
+            readingPreparation = nil
+            previewError = PreviewError(message: task.statusMessage)
+        }
+    }
+
+    private func readingMessage(for task: ConversionTask) -> String {
+        switch task.status {
+        case .queued:
+            "Preparing conversion"
+        case .checkingTools:
+            "Checking conversion tools"
+        case .converting:
+            "Converting to EPUB"
+        case .validating:
+            "Finalizing EPUB"
+        case .succeeded, .succeededWithWarnings:
+            "Opening EPUB preview"
+        case .failed:
+            task.statusMessage
+        }
+    }
+
+    private func isEpub(_ url: URL) -> Bool {
+        url.pathExtension.lowercased() == "epub"
+    }
+
+    private func openEpubPreview(_ outputURL: URL) {
         let extractionDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("MobiVersePreview", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -208,15 +326,18 @@ struct ContentView: View {
                     }
                     previewWindowController = controller
                     controller.show()
+                    readingPreparation = nil
                 }
             } catch let error as EpubPreviewParserError {
                 try? FileManager.default.removeItem(at: extractionDirectory)
                 await MainActor.run {
+                    readingPreparation = nil
                     previewError = PreviewError(message: error.message)
                 }
             } catch {
                 try? FileManager.default.removeItem(at: extractionDirectory)
                 await MainActor.run {
+                    readingPreparation = nil
                     previewError = PreviewError(message: error.localizedDescription)
                 }
             }
@@ -227,6 +348,132 @@ struct ContentView: View {
 private struct PreviewError: Identifiable {
     let id = UUID()
     let message: String
+}
+
+private struct ReadingPreparation: Identifiable, Equatable {
+    let id = UUID()
+    let taskID: UUID?
+    let sourceTitle: String
+    let message: String
+    let progress: Double?
+
+    init(taskID: UUID? = nil, sourceTitle: String, message: String, progress: Double?) {
+        self.taskID = taskID
+        self.sourceTitle = sourceTitle
+        self.message = message
+        self.progress = progress
+    }
+
+    func updated(message: String, progress: Double?) -> ReadingPreparation {
+        ReadingPreparation(taskID: taskID, sourceTitle: sourceTitle, message: message, progress: progress)
+    }
+}
+
+private struct ReadingPreparationOverlay: View {
+    let preparation: ReadingPreparation
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(.black.opacity(0.18))
+                .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                AnimatedSVGPreparationView()
+                    .frame(width: 148, height: 112)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                VStack(spacing: 6) {
+                    Text(preparation.message)
+                        .font(.headline)
+                    Text(preparation.sourceTitle)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: 300)
+                }
+
+                if let progress = preparation.progress {
+                    ProgressView(value: min(max(progress, 0), 1))
+                        .progressViewStyle(.linear)
+                        .frame(width: 260)
+                } else {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            }
+            .padding(.horizontal, 34)
+            .padding(.vertical, 28)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(.white.opacity(0.22), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.18), radius: 30, y: 18)
+        }
+    }
+}
+
+private struct AnimatedSVGPreparationView: NSViewRepresentable {
+    func makeNSView(context: Context) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        let view = WKWebView(frame: .zero, configuration: configuration)
+        view.setValue(false, forKey: "drawsBackground")
+        view.loadHTMLString(svgHTML, baseURL: nil)
+        return view
+    }
+
+    func updateNSView(_ view: WKWebView, context: Context) {}
+
+    private var svgHTML: String {
+        """
+        <!doctype html>
+        <html>
+        <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+          svg { width: 100%; height: 100%; display: block; }
+          .page { transform-origin: 45px 60px; animation: turn 1.8s ease-in-out infinite; }
+          .spark { animation: pulse 1.8s ease-in-out infinite; }
+          .spark.two { animation-delay: .28s; }
+          .spark.three { animation-delay: .56s; }
+          .line { stroke-dasharray: 44; stroke-dashoffset: 44; animation: write 1.8s ease-in-out infinite; }
+          @keyframes turn {
+            0%, 18% { transform: rotateY(0deg) translateX(0); opacity: 1; }
+            54% { transform: rotateY(-58deg) translateX(12px); opacity: .92; }
+            78%, 100% { transform: rotateY(0deg) translateX(0); opacity: 1; }
+          }
+          @keyframes pulse {
+            0%, 100% { opacity: .25; transform: scale(.85); }
+            42% { opacity: 1; transform: scale(1); }
+          }
+          @keyframes write {
+            0%, 18% { stroke-dashoffset: 44; }
+            56%, 100% { stroke-dashoffset: 0; }
+          }
+        </style>
+        </head>
+        <body>
+        <svg viewBox="0 0 148 112" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="148" height="112" rx="18" fill="#F8FAFC"/>
+          <path d="M24 28c0-4.4 3.6-8 8-8h31c5.5 0 10 4.5 10 10v58c0 2.2-1.8 4-4 4H34c-5.5 0-10-4.5-10-10V28Z" fill="#EAF4FF" stroke="#1764D8" stroke-width="3"/>
+          <path class="page" d="M42 22h32c5.5 0 10 4.5 10 10v58H50c-4.4 0-8-3.6-8-8V22Z" fill="white" stroke="#1764D8" stroke-width="3"/>
+          <path class="line" d="M54 42h20M54 56h20M54 70h14" stroke="#1CB7A6" stroke-width="4" stroke-linecap="round"/>
+          <path d="M91 56h23" stroke="#94A3B8" stroke-width="4" stroke-linecap="round"/>
+          <path d="M109 45l12 11-12 11" stroke="#94A3B8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="105" y="25" width="27" height="62" rx="5" fill="#111827"/>
+          <rect x="111" y="35" width="15" height="28" rx="2" fill="#F8FAFC"/>
+          <text x="118.5" y="78" text-anchor="middle" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="700">EPUB</text>
+          <circle class="spark" cx="99" cy="24" r="3" fill="#1CB7A6"/>
+          <circle class="spark two" cx="128" cy="18" r="3" fill="#1764D8"/>
+          <circle class="spark three" cx="137" cy="91" r="3" fill="#1CB7A6"/>
+        </svg>
+        </body>
+        </html>
+        """
+    }
 }
 
 @MainActor

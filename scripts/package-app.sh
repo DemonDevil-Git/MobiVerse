@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="MobiVerse"
 EXECUTABLE_NAME="Mobi2EpubTransfer"
+APP_VERSION="${APP_VERSION:-2.0.0}"
+APP_BUILD="${APP_BUILD:-2}"
 CALIBRE_APP="${CALIBRE_APP:-/Applications/calibre.app}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER:-com.mobiverse.app}"
@@ -83,14 +85,36 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <string>6.0</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>epub</string>
+        <string>mobi</string>
+        <string>azw</string>
+        <string>azw3</string>
+        <string>cbz</string>
+        <string>cbr</string>
+        <string>zip</string>
+        <string>pdf</string>
+      </array>
+      <key>CFBundleTypeName</key>
+      <string>Ebook and comic files</string>
+      <key>CFBundleTypeRole</key>
+      <string>Viewer</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+    </dict>
+  </array>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0.0</string>
+  <string>$APP_VERSION</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>$APP_BUILD</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
   <key>NSHighResolutionCapable</key>

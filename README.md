@@ -1,6 +1,6 @@
 # MobiVerse
 
-**A native macOS converter for turning Kindle books, comic archives, and PDF comics into polished EPUBs for Apple Books and modern EPUB readers.**
+**A native macOS reader-converter for opening EPUBs directly and turning Kindle books, comic archives, and PDF comics into polished EPUBs for Apple Books and modern EPUB readers.**
 
 <p align="center">
   <img src="Docs/hero.svg" alt="MobiVerse converts illustrated books into Apple Books-friendly EPUBs" width="100%">
@@ -21,6 +21,9 @@
 - **Made for comics and illustrated books**  
   Image pages are rebuilt into clean fixed-layout EPUB3 pages with stable sizing, no unexpected margins, and right-to-left manga metadata.
 
+- **Read-first opening flow**
+  Open an EPUB instantly, or open MOBI/AZW/comic/PDF sources and let MobiVerse quietly convert them before showing the preview.
+
 - **Works without asking readers to install Calibre**  
   The distributable app can bundle Calibre so conversion works immediately after installation.
 
@@ -37,10 +40,11 @@
   <img src="Docs/apple-books-comparison.svg" alt="Apple Books comic layout before and after MobiVerse processing" width="100%">
 </p>
 
-## Supported Inputs
+## Supported Files
 
 | Format | Use case |
 | --- | --- |
+| EPUB | Open directly in the built-in preview |
 | MOBI, AZW, AZW3 | Kindle-style ebooks without DRM |
 | CBZ, ZIP | Comic archives made from ordered image files |
 | CBR | RAR-based comic archives readable by Calibre |
@@ -53,7 +57,7 @@ MobiVerse does not remove DRM. Protected or unreadable files are reported clearl
 1. Download the latest DMG: [MobiVerse-1.0.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-1.0.0.dmg).
 2. Open `MobiVerse-1.0.0.dmg`.
 3. Drag `MobiVerse.app` into `Applications`.
-4. Launch MobiVerse and drop supported files into the window.
+4. Launch MobiVerse and drop supported files into the window, or open supported files with MobiVerse from Finder.
 
 Converted EPUB files are written next to the original source file without overwriting existing EPUBs.
 
@@ -144,7 +148,7 @@ scripts/package-dmg.sh
 The generated installer image is written to:
 
 ```text
-.build/MobiVerse-1.0.0.dmg
+.build/MobiVerse-2.0.0.dmg
 ```
 
 Development builds use ad-hoc signing by default. They are suitable for local testing, but macOS Gatekeeper will block them after download from the internet.

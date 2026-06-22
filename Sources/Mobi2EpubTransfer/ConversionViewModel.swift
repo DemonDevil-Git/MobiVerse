@@ -42,17 +42,51 @@ final class ConversionViewModel: ObservableObject {
         toolchain = locator.inspectToolchain()
     }
 
-    func addFiles(_ urls: [URL]) {
+    @discardableResult
+    func addFiles(_ urls: [URL]) -> [ConversionTask] {
         let filteredURLs = urls.filter { acceptedExtensions.contains($0.pathExtension.lowercased()) }
-        let existingInputs = Set(tasks.map(\.inputURL))
-        let newTasks = filteredURLs
-            .filter { !existingInputs.contains($0) }
-            .map { ConversionTask(inputURL: $0) }
+        var addedOrExistingTasks: [ConversionTask] = []
+        var newTasks: [ConversionTask] = []
 
-        guard !newTasks.isEmpty else { return }
-        tasks.append(contentsOf: newTasks)
-        persistTasks()
-        startProcessingIfNeeded()
+        for url in filteredURLs {
+            if let existingTask = tasks.first(where: { $0.inputURL == url }) {
+                addedOrExistingTasks.append(existingTask)
+            } else {
+                let task = ConversionTask(inputURL: url)
+                newTasks.append(task)
+                addedOrExistingTasks.append(task)
+            }
+        }
+
+        if !newTasks.isEmpty {
+            tasks.append(contentsOf: newTasks)
+            persistTasks()
+            startProcessingIfNeeded()
+        }
+
+        return addedOrExistingTasks
+    }
+
+    func task(withID id: UUID) -> ConversionTask? {
+        tasks.first { $0.id == id }
+    }
+
+    func requeueTask(_ task: ConversionTask) {
+        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        switch tasks[index].status {
+        case .checkingTools, .converting, .validating, .queued:
+            return
+        case .succeeded, .succeededWithWarnings, .failed:
+            tasks[index].status = .queued
+            tasks[index].progress = 0
+            tasks[index].statusMessage = "Waiting"
+            tasks[index].outputURL = nil
+            tasks[index].reportURL = nil
+            tasks[index].log = ""
+            tasks[index].completedAt = nil
+            persistTasks()
+            startProcessingIfNeeded()
+        }
     }
 
     func retryFailedTasks() {
