@@ -1,5 +1,7 @@
 # MobiVerse
 
+> 中文说明：[README.zh-CN.md](README.zh-CN.md)
+
 **A native macOS reader-converter for opening EPUBs directly and turning Kindle books, comic archives, and PDF comics into polished EPUBs for Apple Books and modern EPUB readers.**
 
 <p align="center">
