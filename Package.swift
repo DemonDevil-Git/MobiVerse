@@ -17,7 +17,8 @@ let package = Package(
         ),
         .executableTarget(
             name: "Mobi2EpubTransfer",
-            dependencies: ["Mobi2EpubTransferCore"]
+            dependencies: ["Mobi2EpubTransferCore"],
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "Mobi2EpubTransferCoreTests",

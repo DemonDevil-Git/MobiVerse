@@ -32,7 +32,7 @@ struct Mobi2EpubTransferApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .frame(minWidth: 920, minHeight: 620)
+                .frame(minWidth: 1080, minHeight: 720)
         }
         .windowStyle(.titleBar)
     }

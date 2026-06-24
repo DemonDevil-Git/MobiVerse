@@ -39,6 +39,7 @@ rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$THIRD_PARTY_DIR"
 
 cp "$BINARY_PATH" "$MACOS_DIR/$EXECUTABLE_NAME"
+cp "$ROOT_DIR/Sources/Mobi2EpubTransfer/Resources/"*.png "$RESOURCES_DIR/"
 if [[ -f "$APP_ICON" ]]; then
   cp "$APP_ICON" "$RESOURCES_DIR/AppIcon.icns"
 fi

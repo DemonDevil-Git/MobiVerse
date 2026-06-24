@@ -11,15 +11,14 @@ struct ContentView: View {
     @State private var previewWindowController: EpubPreviewWindowController?
     @State private var previewError: PreviewError?
     @State private var readingPreparation: ReadingPreparation?
+    @State private var taskLayout = TaskLayout.grid
 
     var body: some View {
         HStack(spacing: 0) {
             if isSidebarVisible {
                 sidebar
-                    .frame(width: 300)
+                    .frame(width: 286)
                     .transition(.move(edge: .leading).combined(with: .opacity))
-
-                Divider()
             }
 
             mainContent
@@ -84,23 +83,29 @@ struct ContentView: View {
     }
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(spacing: 8) {
+                BrandMark()
                 Text("MobiVerse")
-                    .font(.title2.weight(.semibold))
-                Text("Convert ebooks, comic archives, and PDF comics into elegant EPUBs for illustrated reading.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(.system(size: 29, weight: .semibold, design: .serif))
+                    .foregroundStyle(MobiPalette.ink)
+                Text("Make room for every story")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(MobiPalette.terracotta)
             }
+            .frame(maxWidth: .infinity)
+            .padding(.bottom, 24)
 
             Button {
                 viewModel.isImporterPresented = true
             } label: {
                 Label("Choose books", systemImage: "plus")
+                    .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
             }
             .buttonStyle(.borderedProminent)
+            .tint(MobiPalette.sage)
 
             Button {
                 viewModel.retryFailedTasks()
@@ -109,10 +114,52 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .tint(MobiPalette.ink.opacity(0.78))
+            .padding(.top, 8)
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Your shelf")
+                    .font(.headline.weight(.semibold))
+
+                SidebarMetric(value: viewModel.tasks.count, label: "Total conversions", icon: "books.vertical")
+                SidebarMetric(value: completedTaskCount, label: "Succeeded", icon: "checkmark.circle.fill", color: MobiPalette.sage)
+                SidebarMetric(value: failedTaskCount, label: "Failed", icon: "xmark.circle.fill", color: MobiPalette.terracotta)
+                SidebarMetric(value: activeTaskCount, label: "In progress", icon: "progress.indicator", color: MobiPalette.cobalt)
+            }
+            .padding(.top, 24)
 
             Spacer()
+
+            AppResourceImage(name: "reading-still-life")
+                .scaledToFit()
+                .frame(maxWidth: .infinity)
+                .frame(maxHeight: 360, alignment: .bottom)
+                .padding(.horizontal, 4)
+                .padding(.bottom, 12)
+                .accessibilityHidden(true)
+
+            Label(viewModel.canConvert ? "Ready to convert" : "Converter unavailable", systemImage: viewModel.canConvert ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(viewModel.canConvert ? MobiPalette.sage : .orange)
         }
-        .padding(20)
+        .foregroundStyle(MobiPalette.ink)
+        .padding(.horizontal, 22)
+        .padding(.top, 24)
+        .padding(.bottom, 20)
+        .background(MobiPalette.sidebar)
+        .overlay(alignment: .trailing) { Divider() }
+    }
+
+    private var completedTaskCount: Int {
+        viewModel.tasks.filter { $0.status == .succeeded || $0.status == .succeededWithWarnings }.count
+    }
+
+    private var failedTaskCount: Int {
+        viewModel.tasks.filter { $0.status == .failed }.count
+    }
+
+    private var activeTaskCount: Int {
+        viewModel.tasks.filter { [.queued, .checkingTools, .converting, .validating].contains($0.status) }.count
     }
 
     private var toolchainDetailMessage: String {
@@ -132,58 +179,105 @@ struct ContentView: View {
             dropZone
             taskList
         }
+        .background(MobiPalette.paper)
     }
 
     private var dropZone: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "books.vertical")
-                .font(.system(size: 34))
-                .foregroundStyle(.secondary)
-            Text("Drop EPUB, MOBI, AZW, AZW3, CBZ, CBR, ZIP, or PDF files here")
-                .font(.headline)
-            Text("EPUB files open instantly. Other supported books convert silently, then open for reading.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(30)
-        .background(.thinMaterial)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [6]))
-                .foregroundStyle(.tertiary)
-        )
-        .padding(20)
-        .onDrop(of: ["public.file-url"], isTargeted: nil) { providers in
-            loadDroppedFiles(from: providers)
+        AppResourceImage(name: "hero-books-background")
+            .scaledToFill()
+            .frame(maxWidth: .infinity)
+            .frame(height: 250)
+            .clipped()
+            .onDrop(of: ["public.file-url"], isTargeted: nil) { providers in
+                loadDroppedFiles(from: providers)
             return true
         }
     }
 
+    private var dropTargetCard: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "book.closed")
+                .font(.system(size: 31, weight: .medium))
+            Text("Drop books here")
+                .font(.system(size: 27, weight: .semibold, design: .serif))
+            Text("EPUB, MOBI, AZW, AZW3, CBZ, CBR, ZIP, or PDF")
+                .font(.callout)
+            Text("EPUB opens instantly. Other books convert, then open for reading.")
+                .font(.caption)
+                .foregroundStyle(MobiPalette.ink.opacity(0.58))
+        }
+        .foregroundStyle(MobiPalette.ink)
+        .frame(maxWidth: 540)
+        .frame(height: 190)
+        .padding(.horizontal, 34)
+        .background(MobiPalette.cream.opacity(0.80), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(.white.opacity(0.94), style: StrokeStyle(lineWidth: 1.6, dash: [8, 6]))
+        }
+        .shadow(color: MobiPalette.ink.opacity(0.18), radius: 22, y: 10)
+        .padding(.horizontal, 190)
+    }
+
     private var taskList: some View {
-        List(viewModel.tasks) { task in
-            TaskRow(
-                task: task,
-                isOutputMissing: viewModel.isOutputMissing(for: task),
-                canDelete: viewModel.canDelete(task)
-            ) {
-                preview(task)
-            } revealOutput: {
-                viewModel.revealOutput(for: task)
-            } openReport: {
-                viewModel.openReport(for: task)
-            } deleteHistory: {
-                viewModel.deleteTask(task)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Ready")
+                    .font(.system(size: 24, weight: .semibold, design: .serif))
+                Spacer()
+                TaskLayoutToggle(selectedLayout: $taskLayout)
+            }
+            .padding(.horizontal, 30)
+            .padding(.top, 18)
+
+            ScrollView {
+                LazyVGrid(columns: taskGridColumns, spacing: 14) {
+                    ForEach(viewModel.tasks) { task in
+                        TaskRow(
+                            task: task,
+                            coverImage: viewModel.coverImage(for: task),
+                            isOutputMissing: viewModel.isOutputMissing(for: task),
+                            canDelete: viewModel.canDelete(task)
+                        ) {
+                            preview(task)
+                        } revealOutput: {
+                            viewModel.revealOutput(for: task)
+                        } openReport: {
+                            viewModel.openReport(for: task)
+                        } deleteHistory: {
+                            viewModel.deleteTask(task)
+                        }
+                        .onAppear {
+                            viewModel.requestCoverImage(for: task)
+                        }
+                    }
+
+                    AddBookShelfCard {
+                        viewModel.isImporterPresented = true
+                    }
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, 24)
+                .animation(.easeInOut(duration: 0.18), value: taskLayout)
+            }
+            .overlay {
+                if viewModel.tasks.isEmpty {
+                    ContentUnavailableView(
+                        "Your shelf is empty",
+                        systemImage: "books.vertical",
+                        description: Text("Add a book above to begin your MobiVerse library.")
+                    )
+                }
             }
         }
-        .overlay {
-            if viewModel.tasks.isEmpty {
-                ContentUnavailableView(
-                    "No conversion history",
-                    systemImage: "book",
-                    description: Text("Choose files or drag them into the window to begin.")
-                )
-            }
+    }
+
+    private var taskGridColumns: [GridItem] {
+        switch taskLayout {
+        case .grid:
+            [GridItem(.adaptive(minimum: 340, maximum: 560), spacing: 14)]
+        case .list:
+            [GridItem(.flexible(minimum: 340), spacing: 14)]
         }
     }
 
@@ -348,6 +442,123 @@ struct ContentView: View {
 private struct PreviewError: Identifiable {
     let id = UUID()
     let message: String
+}
+
+private enum MobiPalette {
+    static let ink = Color(red: 0.08, green: 0.16, blue: 0.20)
+    static let paper = Color(red: 0.965, green: 0.948, blue: 0.91)
+    static let sidebar = Color(red: 0.973, green: 0.961, blue: 0.933)
+    static let cream = Color(red: 0.95, green: 0.90, blue: 0.81)
+    static let sage = Color(red: 0.31, green: 0.48, blue: 0.31)
+    static let terracotta = Color(red: 0.72, green: 0.28, blue: 0.16)
+    static let walnut = Color(red: 0.38, green: 0.21, blue: 0.12)
+    static let walnutLight = Color(red: 0.58, green: 0.36, blue: 0.22)
+    static let cobalt = Color(red: 0.18, green: 0.35, blue: 0.45)
+    static let mint = sage
+    static let coral = terracotta
+}
+
+private struct AppResourceImage: View {
+    let name: String
+
+    var body: some View {
+        if let image = loadImage() {
+            Image(nsImage: image)
+                .resizable()
+        } else {
+            Color.clear
+        }
+    }
+
+    private func loadImage() -> NSImage? {
+        let urls = [
+            Bundle.main.url(forResource: name, withExtension: "png"),
+            Bundle.module.url(forResource: name, withExtension: "png")
+        ]
+        return urls.compactMap { $0 }.compactMap(NSImage.init(contentsOf:)).first
+    }
+}
+
+private struct BrandMark: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(MobiPalette.ink)
+            Image(systemName: "sparkles")
+                .font(.system(size: 12))
+                .foregroundStyle(MobiPalette.cream)
+                .offset(x: 10, y: -12)
+            Image(systemName: "book.closed.fill")
+                .font(.system(size: 27, weight: .semibold))
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(MobiPalette.terracotta, MobiPalette.cream)
+            Image(systemName: "leaf.fill")
+                .font(.system(size: 17))
+                .foregroundStyle(MobiPalette.sage)
+                .offset(x: -31, y: 18)
+        }
+        .frame(width: 72, height: 72)
+    }
+}
+
+private struct SidebarMetric: View {
+    let value: Int
+    let label: String
+    let icon: String
+    var color: Color = MobiPalette.ink.opacity(0.72)
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon)
+                .foregroundStyle(color)
+                .frame(width: 18)
+            Text(label)
+                .font(.callout)
+            Spacer()
+            Text(value.formatted())
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct DecorativeBook: View {
+    let color: Color
+    let rotation: Double
+    let motif: String
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(color)
+            .frame(width: 112, height: 176)
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(.white.opacity(0.22))
+                VStack(spacing: 12) {
+                    Image(systemName: motif)
+                        .font(.system(size: 31, weight: .light))
+                    Rectangle()
+                        .frame(width: 34, height: 1)
+                }
+                .foregroundStyle(MobiPalette.ink.opacity(0.34))
+            }
+            .shadow(color: .black.opacity(0.24), radius: 10, y: 7)
+            .rotationEffect(.degrees(rotation))
+    }
+}
+
+private struct FormatPill: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 9, weight: .bold, design: .rounded))
+            .tracking(0.35)
+            .foregroundStyle(MobiPalette.ink.opacity(0.65))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(MobiPalette.ink.opacity(0.055), in: Capsule())
+    }
 }
 
 private struct ReadingPreparation: Identifiable, Equatable {
@@ -818,8 +1029,83 @@ private struct ToolStatusButton: View {
     }
 }
 
+private struct AddBookShelfCard: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 9) {
+                Image(systemName: "books.vertical")
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundStyle(MobiPalette.sage.opacity(0.65))
+                Text("Add more books")
+                    .font(.system(size: 17, weight: .semibold, design: .serif))
+                Text("Drag and drop or choose files")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 132)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(MobiPalette.ink)
+        .background(.white.opacity(0.32), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(MobiPalette.ink.opacity(0.12), style: StrokeStyle(lineWidth: 1, dash: [7, 6]))
+        }
+    }
+}
+
+private enum TaskLayout: Hashable {
+    case grid
+    case list
+}
+
+private struct TaskLayoutToggle: View {
+    @Binding var selectedLayout: TaskLayout
+
+    var body: some View {
+        HStack(spacing: 2) {
+            layoutButton(layout: .grid, icon: "square.grid.2x2.fill", title: "Grid view")
+            layoutButton(layout: .list, icon: "list.bullet", title: "List view")
+        }
+        .font(.callout)
+        .padding(5)
+        .background(.white.opacity(0.76), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(MobiPalette.ink.opacity(0.06))
+        }
+    }
+
+    private func layoutButton(layout: TaskLayout, icon: String, title: String) -> some View {
+        Button {
+            selectedLayout = layout
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 36, height: 30)
+                .foregroundStyle(selectedLayout == layout ? MobiPalette.sage : MobiPalette.ink.opacity(0.24))
+                .background {
+                    if selectedLayout == layout {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(.white.opacity(0.9))
+                            .shadow(color: MobiPalette.ink.opacity(0.08), radius: 3, y: 1)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .help(title)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(selectedLayout == layout ? .isSelected : [])
+    }
+}
+
 private struct TaskRow: View {
     let task: ConversionTask
+    let coverImage: NSImage?
     let isOutputMissing: Bool
     let canDelete: Bool
     let preview: () -> Void
@@ -828,83 +1114,152 @@ private struct TaskRow: View {
     let deleteHistory: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(task.inputURL.deletingPathExtension().lastPathComponent)
-                        .font(.headline)
-                        .lineLimit(1)
-                    Text(task.inputURL.path)
+        VStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 14) {
+                coverThumbnail
+
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack {
+                        Text(task.inputURL.deletingPathExtension().lastPathComponent)
+                            .font(.headline.weight(.semibold))
+                            .lineLimit(1)
+                        Spacer()
+                        if isOutputMissing { MissingFileBadge() } else { StatusBadge(status: task.status) }
+                    }
+
+                    Text(completionText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    if let completedAt = task.completedAt {
-                        Text("Completed \(completedAt.formatted(date: .abbreviated, time: .shortened))")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
 
-                Spacer()
+                    Spacer(minLength: 0)
 
-                if isOutputMissing {
-                    MissingFileBadge()
-                } else {
-                    StatusBadge(status: task.status)
+                    ProgressView(value: task.progress)
+                        .progressViewStyle(.linear)
+                        .tint(accentColor)
+                        .opacity(isOutputMissing ? 0.3 : 0.85)
                 }
+                .frame(height: 86)
             }
 
-            ProgressView(value: task.progress)
-                .progressViewStyle(.linear)
-                .opacity(isOutputMissing ? 0.35 : 1)
-
-            HStack {
-                Text(isOutputMissing ? "Converted EPUB is no longer at the saved output path." : task.statusMessage)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-
-                Spacer()
-
-                Button {
-                    preview()
-                } label: {
-                    Label("Preview", systemImage: "book.pages")
-                }
-                .disabled(!canPreview)
-
-                Button {
-                    revealOutput()
-                } label: {
-                    Label("Reveal", systemImage: "folder")
-                }
-                .disabled(task.outputURL == nil || isOutputMissing)
-
-                Button {
-                    openReport()
-                } label: {
-                    Label("Report", systemImage: "doc.text")
-                }
-                .disabled(task.reportURL == nil)
-
-                Button(role: .destructive) {
-                    deleteHistory()
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-                .disabled(!canDelete)
-                .help(canDelete ? "Delete this history record" : "Active conversions cannot be deleted")
+            HStack(spacing: 7) {
+                TaskActionButton(title: "Preview", icon: "book.pages", enabled: canPreview, showsTitle: true, action: preview)
+                TaskActionButton(title: "Reveal", icon: "folder", enabled: task.outputURL != nil && !isOutputMissing, showsTitle: true, action: revealOutput)
+                TaskActionButton(title: "Report", icon: "doc.text", enabled: task.reportURL != nil, showsTitle: true, action: openReport)
+                TaskActionButton(title: "Delete", icon: "trash", enabled: canDelete, role: .destructive, action: deleteHistory)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
         }
-        .padding(.vertical, 8)
+        .padding(14)
+        .background(.white.opacity(0.76), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(MobiPalette.ink.opacity(0.055))
+        }
+        .shadow(color: MobiPalette.ink.opacity(0.045), radius: 12, y: 5)
         .opacity(isOutputMissing ? 0.48 : 1)
     }
 
     private var canPreview: Bool {
         !isOutputMissing && (task.status == .succeeded || task.status == .succeededWithWarnings) && task.outputURL != nil
+    }
+
+    private var accentColor: Color {
+        switch task.status {
+        case .failed: MobiPalette.coral
+        case .succeededWithWarnings: .orange
+        case .succeeded: MobiPalette.mint
+        case .queued, .checkingTools, .converting, .validating: MobiPalette.cobalt
+        }
+    }
+
+    private var coverColor: Color {
+        switch task.inputURL.pathExtension.lowercased() {
+        case "azw", "azw3": MobiPalette.cobalt
+        case "mobi": MobiPalette.sage
+        case "cbz", "cbr", "zip", "pdf": MobiPalette.terracotta
+        default: MobiPalette.walnut
+        }
+    }
+
+    @ViewBuilder
+    private var coverThumbnail: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(coverColor)
+
+            if let coverImage {
+                Image(nsImage: coverImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 62, height: 86)
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .overlay {
+                        LinearGradient(
+                            colors: [.black.opacity(0.08), .clear, .black.opacity(0.16)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    }
+            } else {
+                Image(systemName: formatIcon)
+                    .font(.system(size: 25, weight: .light))
+                    .foregroundStyle(.white.opacity(0.82))
+                Text(task.inputURL.pathExtension.uppercased())
+                    .font(.system(size: 8, weight: .bold, design: .rounded))
+                    .tracking(0.7)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .offset(y: 29)
+            }
+        }
+        .frame(width: 62, height: 86)
+        .overlay {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .strokeBorder(.white.opacity(0.55), lineWidth: 0.8)
+        }
+        .shadow(color: MobiPalette.ink.opacity(0.13), radius: 6, y: 3)
+    }
+
+    private var completionText: String {
+        if isOutputMissing { return "Converted EPUB is no longer available" }
+        if let completedAt = task.completedAt {
+            return "Completed \(completedAt.formatted(date: .abbreviated, time: .shortened))"
+        }
+        return task.statusMessage
+    }
+
+    private var formatIcon: String {
+        switch task.inputURL.pathExtension.lowercased() {
+        case "cbz", "cbr", "zip", "pdf": "photo.on.rectangle.angled"
+        default: "book.closed.fill"
+        }
+    }
+}
+
+private struct TaskActionButton: View {
+    let title: String
+    let icon: String
+    let enabled: Bool
+    var role: ButtonRole?
+    var showsTitle = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(role: role, action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                if showsTitle { Text(title) }
+            }
+            .font(.caption.weight(.medium))
+            .frame(maxWidth: showsTitle ? .infinity : nil)
+            .frame(height: 28)
+            .padding(.horizontal, showsTitle ? 7 : 9)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(role == .destructive ? MobiPalette.coral : MobiPalette.ink.opacity(0.65))
+        .background(MobiPalette.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .opacity(enabled ? 1 : 0.3)
+        .disabled(!enabled)
+        .help(title)
     }
 }
 

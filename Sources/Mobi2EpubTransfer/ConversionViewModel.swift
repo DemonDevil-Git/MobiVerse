@@ -7,23 +7,30 @@ import SwiftUI
 final class ConversionViewModel: ObservableObject {
     @Published private(set) var tasks: [ConversionTask] = []
     @Published private(set) var toolchain: ToolchainAvailability
+    @Published private(set) var coverImages: [UUID: NSImage] = [:]
     @Published var isImporterPresented = false
 
     private let locator: CommandLocator
     private let outputPolicy: FileOutputPolicy
     private let historyStore: ConversionHistoryStore
+    private let coverThumbnailCache: CoverThumbnailCache
     private var isProcessing = false
+    private var loadingCoverTaskIDs: Set<UUID> = []
 
     init(
         locator: CommandLocator = CommandLocator(),
         outputPolicy: FileOutputPolicy = FileOutputPolicy(),
-        historyStore: ConversionHistoryStore = ConversionHistoryStore()
+        historyStore: ConversionHistoryStore = ConversionHistoryStore(),
+        coverThumbnailCache: CoverThumbnailCache = CoverThumbnailCache()
     ) {
         self.locator = locator
         self.outputPolicy = outputPolicy
         self.historyStore = historyStore
+        self.coverThumbnailCache = coverThumbnailCache
         self.toolchain = locator.inspectToolchain()
         self.tasks = historyStore.load()
+        loadCachedCoverImagesForCompletedTasks()
+        requestCoverImagesForCompletedTasks()
     }
 
     var acceptedExtensions: Set<String> {
@@ -77,6 +84,8 @@ final class ConversionViewModel: ObservableObject {
         case .checkingTools, .converting, .validating, .queued:
             return
         case .succeeded, .succeededWithWarnings, .failed:
+            coverImages[tasks[index].id] = nil
+            coverThumbnailCache.removeImage(for: tasks[index])
             tasks[index].status = .queued
             tasks[index].progress = 0
             tasks[index].statusMessage = "Waiting"
@@ -105,6 +114,16 @@ final class ConversionViewModel: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([outputURL])
     }
 
+    func coverImage(for task: ConversionTask) -> NSImage? {
+        coverImages[task.id]
+    }
+
+    func requestCoverImage(for task: ConversionTask) {
+        Task {
+            await loadCoverImageIfNeeded(for: task)
+        }
+    }
+
     func openReport(for task: ConversionTask) {
         guard let reportURL = task.reportURL else { return }
         NSWorkspace.shared.open(reportURL)
@@ -112,6 +131,8 @@ final class ConversionViewModel: ObservableObject {
 
     func deleteTask(_ task: ConversionTask) {
         guard canDelete(task) else { return }
+        coverImages[task.id] = nil
+        coverThumbnailCache.removeImage(for: task)
         tasks.removeAll { $0.id == task.id }
         persistTasks()
     }
@@ -217,6 +238,7 @@ final class ConversionViewModel: ObservableObject {
                 tasks[index].statusMessage = "EPUBCheck failed. Review the report."
             }
             persistTasks()
+            requestCoverImage(for: tasks[index])
         } catch let error as ConversionServiceError {
             tasks[index].status = .failed
             tasks[index].progress = 1
@@ -241,6 +263,63 @@ final class ConversionViewModel: ObservableObject {
 
     private func persistTasks() {
         historyStore.save(tasks)
+    }
+
+    private func requestCoverImagesForCompletedTasks() {
+        for task in tasks {
+            requestCoverImage(for: task)
+        }
+    }
+
+    private func loadCachedCoverImagesForCompletedTasks() {
+        for task in tasks {
+            guard
+                task.status == .succeeded || task.status == .succeededWithWarnings,
+                let cachedImage = coverThumbnailCache.image(for: task)
+            else {
+                continue
+            }
+            coverImages[task.id] = cachedImage
+        }
+    }
+
+    private func loadCoverImageIfNeeded(for task: ConversionTask) async {
+        guard
+            (task.status == .succeeded || task.status == .succeededWithWarnings),
+            coverImages[task.id] == nil,
+            !loadingCoverTaskIDs.contains(task.id),
+            let outputURL = task.outputURL,
+            FileManager.default.fileExists(atPath: outputURL.path)
+        else {
+            return
+        }
+
+        loadingCoverTaskIDs.insert(task.id)
+        defer { loadingCoverTaskIDs.remove(task.id) }
+
+        let extractionDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MobiVerseCoverCache", isDirectory: true)
+            .appendingPathComponent(task.id.uuidString, isDirectory: true)
+
+        do {
+            guard
+                let coverURL = try await EpubCoverImageExtractor().coverImageURL(
+                    epubURL: outputURL,
+                    extractionDirectory: extractionDirectory
+                ),
+                let image = NSImage(contentsOf: coverURL)
+            else {
+                return
+            }
+            let cachedImage = coverThumbnailCache.image(for: task)
+            let displayImage = cachedImage ?? image
+            if cachedImage == nil {
+                coverThumbnailCache.save(image, for: task)
+            }
+            coverImages[task.id] = displayImage
+        } catch {
+            return
+        }
     }
 
     private func message(for error: FileOutputPolicyError) -> String {

@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-1.0.0.dmg"><img src="https://img.shields.io/badge/Download%20for%20macOS-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse for macOS"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.0.0.dmg"><img src="https://img.shields.io/badge/Download%20for%20macOS-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse for macOS"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=Latest%20release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
 </p>
@@ -17,6 +17,9 @@
 </p>
 
 ## Why MobiVerse
+
+- **A calmer 2.0 library workspace**  
+  MobiVerse 2.0 replaces the plain utility layout with a warm macOS bookshelf interface, a clear drag-and-drop reading desk, sidebar conversion stats, and polished conversion cards.
 
 - **Made for comics and illustrated books**  
   Image pages are rebuilt into clean fixed-layout EPUB3 pages with stable sizing, no unexpected margins, and right-to-left manga metadata.
@@ -33,8 +36,14 @@
 - **Built-in EPUB preview**  
   Open converted EPUBs directly in the app, flip through image pages with native horizontal paging, zoom in, and use fullscreen preview.
 
+- **Real cover thumbnails**  
+  Completed books show the converted EPUB cover in the shelf instead of generic file tiles. Covers are cached locally so reopened sessions restore the shelf quickly.
+
+- **Grid and list shelf views**  
+  Switch between a visual grid and a denser list layout from the shelf toolbar.
+
 - **Batch conversion with history**  
-  Drag in multiple books, track progress, reveal outputs, open reports, and keep conversion history across launches.
+  Drag in multiple books, track progress, reveal outputs, open reports, and keep conversion history across launches. The completed list keeps titles and status visible without exposing full local file paths in the UI.
 
 <p align="center">
   <img src="Docs/apple-books-comparison.svg" alt="Apple Books comic layout before and after MobiVerse processing" width="100%">
@@ -54,8 +63,8 @@ MobiVerse does not remove DRM. Protected or unreadable files are reported clearl
 
 ## Install
 
-1. Download the latest DMG: [MobiVerse-1.0.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-1.0.0.dmg).
-2. Open `MobiVerse-1.0.0.dmg`.
+1. Download the latest DMG: [MobiVerse-2.0.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.0.0.dmg).
+2. Open `MobiVerse-2.0.0.dmg`.
 3. Drag `MobiVerse.app` into `Applications`.
 4. Launch MobiVerse and drop supported files into the window, or open supported files with MobiVerse from Finder.
 
@@ -76,10 +85,19 @@ The built-in preview focuses on comic/image-page EPUBs:
 
 Text EPUBs fall back to a simple WebView preview.
 
+## What's New in 2.0
+
+- Redesigned warm bookshelf UI with a large visual drop zone and reading-inspired artwork.
+- Sidebar shelf summary for total conversions, successes, failures, and active jobs.
+- Completed EPUB cards now show extracted cover thumbnails.
+- Local thumbnail cache prevents already-loaded covers from flashing in on every relaunch.
+- Grid/list view switcher for the conversion shelf.
+- Cleaner completed-book cards that omit full source file paths.
+- Packaged image resources are included in app bundles and DMG builds.
+
 ## Roadmap
 
 - Signed and notarized public DMG.
-- Real product demo GIF and Apple Books comparison screenshots.
 - Optional EPUBCheck bundle for richer validation reports.
 - More explicit reading-direction controls for manga and western comics.
 - Better metadata editing for title, author, cover, and series fields.

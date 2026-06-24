@@ -40,6 +40,32 @@ struct EpubPreviewParserTests {
         }
     }
 
+    @Test
+    func extractsCoverImageFromEPUBManifest() async throws {
+        let directory = try TemporaryDirectory()
+        let bookDirectory = directory.url.appendingPathComponent("cover-book")
+        try createMinimalEPUBDirectory(at: bookDirectory, imagePageCount: 0)
+        let imagesURL = bookDirectory.appendingPathComponent("OEBPS/images", isDirectory: true)
+        FileManager.default.createFile(
+            atPath: imagesURL.appendingPathComponent("cover.jpg").path,
+            contents: Data([0xFF, 0xD8, 0xFF, 0xD9])
+        )
+        try coverOPF.write(
+            to: bookDirectory.appendingPathComponent("OEBPS/content.opf"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let epubURL = try await zipEPUBDirectory(bookDirectory, outputURL: directory.url.appendingPathComponent("cover.epub"))
+        let extractionDirectory = directory.url.appendingPathComponent("cover-preview")
+
+        let coverURL = try await EpubCoverImageExtractor().coverImageURL(
+            epubURL: epubURL,
+            extractionDirectory: extractionDirectory
+        )
+
+        #expect(coverURL?.lastPathComponent == "cover.jpg")
+    }
+
     private func createMinimalEPUBDirectory(at directory: URL, imagePageCount: Int) throws {
         let metaInfURL = directory.appendingPathComponent("META-INF", isDirectory: true)
         let oebpsURL = directory.appendingPathComponent("OEBPS", isDirectory: true)
@@ -132,6 +158,25 @@ struct EpubPreviewParserTests {
           </metadata>
           <manifest>
             <item id="chapter" href="pages/chapter.xhtml" media-type="application/xhtml+xml"/>
+          </manifest>
+          <spine>
+            <itemref idref="chapter"/>
+          </spine>
+        </package>
+        """
+    }
+
+    private var coverOPF: String {
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+          <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <dc:title>Preview Text</dc:title>
+            <meta name="cover" content="cover-image"/>
+          </metadata>
+          <manifest>
+            <item id="chapter" href="pages/chapter.xhtml" media-type="application/xhtml+xml"/>
+            <item id="cover-image" href="images/cover.jpg" media-type="image/jpeg" properties="cover-image"/>
           </manifest>
           <spine>
             <itemref idref="chapter"/>
