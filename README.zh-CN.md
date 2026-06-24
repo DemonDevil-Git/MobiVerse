@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.0.0.dmg"><img src="https://img.shields.io/badge/下载%20macOS%20版-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse macOS 版"></a>
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=最新版本" alt="最新版本"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.0.0.dmg"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20macOS%20%E7%89%88-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse macOS 版"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC" alt="最新版本"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
 </p>
 
