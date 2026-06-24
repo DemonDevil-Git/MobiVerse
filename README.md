@@ -18,6 +18,12 @@
   <strong>No Calibre installation required for readers.</strong> Best for manga, illustrated Kindle books, comic archives, and Apple Books-friendly EPUB output.
 </p>
 
+## Product Showcase
+
+<p align="center">
+  <img src="Docs/product-showcase.png" alt="MobiVerse 2.0 bookshelf interface with sanitized sample books" width="100%">
+</p>
+
 ## Why MobiVerse
 
 - **A calmer 2.0 library workspace**  

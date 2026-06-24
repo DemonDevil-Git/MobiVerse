@@ -18,6 +18,12 @@
   <strong>普通用户无需单独安装 Calibre。</strong> 适合漫画、图像型 Kindle 书籍、漫画压缩包，以及需要在 Apple Books 中稳定阅读的 EPUB 输出。
 </p>
 
+## 产品展示
+
+<p align="center">
+  <img src="Docs/product-showcase.png" alt="MobiVerse 2.0 书架界面，使用脱敏示例图书" width="100%">
+</p>
+
 ## 为什么选择 MobiVerse
 
 - **2.0 全新书架式界面**  
