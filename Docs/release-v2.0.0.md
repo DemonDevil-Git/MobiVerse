@@ -1,5 +1,8 @@
 # MobiVerse v2.0.0
 
+> [!WARNING]
+> This release can crash immediately at launch because its SwiftPM image resource bundle was not included in the packaged app. Download the fixed [MobiVerse v2.0.1](https://github.com/DemonDevil-Git/MobiVerse/releases/tag/v2.0.1) release instead.
+
 MobiVerse 2.0 is a polished macOS reader-converter release focused on a better visual library workflow for EPUB, Kindle-style ebooks, comic archives, and PDF comics.
 
 ## What's New
