@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="MobiVerse"
 EXECUTABLE_NAME="Mobi2EpubTransfer"
-APP_VERSION="${APP_VERSION:-2.0.0}"
-APP_BUILD="${APP_BUILD:-2}"
+APP_VERSION="${APP_VERSION:-2.0.1}"
+APP_BUILD="${APP_BUILD:-4}"
 CALIBRE_APP="${CALIBRE_APP:-/Applications/calibre.app}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER:-com.mobiverse.app}"
@@ -19,6 +19,9 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 THIRD_PARTY_DIR="$RESOURCES_DIR/ThirdParty"
 BINARY_PATH="$ROOT_DIR/.build/release/$EXECUTABLE_NAME"
+RESOURCE_BUNDLE_NAME="${EXECUTABLE_NAME}_Mobi2EpubTransfer.bundle"
+RESOURCE_BUNDLE_PATH="$ROOT_DIR/.build/release/$RESOURCE_BUNDLE_NAME"
+RESOURCE_BUNDLE_DESTINATION="$RESOURCES_DIR/$RESOURCE_BUNDLE_NAME"
 APP_ICON="$ROOT_DIR/Assets/AppIcon/AppIcon.icns"
 
 if [[ "$PACKAGE_WITHOUT_CALIBRE" != "1" && ! -d "$CALIBRE_APP" ]]; then
@@ -35,11 +38,17 @@ fi
 
 swift build -c release --product "$EXECUTABLE_NAME"
 
+if [[ ! -d "$RESOURCE_BUNDLE_PATH" ]]; then
+  echo "SwiftPM resource bundle not found at: $RESOURCE_BUNDLE_PATH" >&2
+  exit 1
+fi
+
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$THIRD_PARTY_DIR"
 
 cp "$BINARY_PATH" "$MACOS_DIR/$EXECUTABLE_NAME"
 cp "$ROOT_DIR/Sources/Mobi2EpubTransfer/Resources/"*.png "$RESOURCES_DIR/"
+/usr/bin/ditto "$RESOURCE_BUNDLE_PATH" "$RESOURCE_BUNDLE_DESTINATION"
 if [[ -f "$APP_ICON" ]]; then
   cp "$APP_ICON" "$RESOURCES_DIR/AppIcon.icns"
 fi
@@ -146,7 +155,16 @@ if command -v codesign >/dev/null 2>&1; then
   codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 fi
 
+for resource_name in hero-books-background reading-still-life; do
+  if [[ ! -f "$RESOURCES_DIR/$resource_name.png" || ! -f "$RESOURCE_BUNDLE_DESTINATION/$resource_name.png" ]]; then
+    echo "Required app resource was not packaged: $resource_name.png" >&2
+    exit 1
+  fi
+done
+
 echo "Packaged app: $APP_DIR"
+echo "App version: $APP_VERSION ($APP_BUILD)"
+echo "SwiftPM resources: $RESOURCE_BUNDLE_DESTINATION"
 if [[ -f "$APP_ICON" ]]; then
   echo "App icon: $APP_DIR/Contents/Resources/AppIcon.icns"
 else

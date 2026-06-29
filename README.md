@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.0.0.dmg"><img src="https://img.shields.io/badge/Download%20for%20macOS-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse for macOS"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.0.1.dmg"><img src="https://img.shields.io/badge/Download%20for%20macOS-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse for macOS"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=Latest%20release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
 </p>
@@ -71,8 +71,8 @@ MobiVerse does not remove DRM. Protected or unreadable files are reported clearl
 
 ## Install
 
-1. Download the latest DMG: [MobiVerse-2.0.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.0.0.dmg).
-2. Open `MobiVerse-2.0.0.dmg`.
+1. Download the latest DMG: [MobiVerse-2.0.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.0.1.dmg).
+2. Open `MobiVerse-2.0.1.dmg`.
 3. Drag `MobiVerse.app` into `Applications`.
 4. Launch MobiVerse and drop supported files into the window, or open supported files with MobiVerse from Finder.
 
@@ -174,7 +174,7 @@ scripts/package-dmg.sh
 The generated installer image is written to:
 
 ```text
-.build/MobiVerse-2.0.0.dmg
+.build/MobiVerse-2.0.1.dmg
 ```
 
 Development builds use ad-hoc signing by default. They are suitable for local testing, but macOS Gatekeeper will block them after download from the internet.

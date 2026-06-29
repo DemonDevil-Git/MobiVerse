@@ -471,11 +471,32 @@ private struct AppResourceImage: View {
     }
 
     private func loadImage() -> NSImage? {
-        let urls = [
-            Bundle.main.url(forResource: name, withExtension: "png"),
-            Bundle.module.url(forResource: name, withExtension: "png")
-        ]
-        return urls.compactMap { $0 }.compactMap(NSImage.init(contentsOf:)).first
+        if let url = Bundle.main.url(forResource: name, withExtension: "png"),
+           let image = NSImage(contentsOf: url) {
+            return image
+        }
+
+        let resourceBundleName = "Mobi2EpubTransfer_Mobi2EpubTransfer.bundle"
+        let bundleURLs = [
+            Bundle.main.bundleURL.appendingPathComponent(resourceBundleName, isDirectory: true),
+            Bundle.main.resourceURL?.appendingPathComponent(resourceBundleName, isDirectory: true),
+            Bundle.main.executableURL?
+                .deletingLastPathComponent()
+                .appendingPathComponent(resourceBundleName, isDirectory: true)
+        ].compactMap { $0 }
+
+        for bundleURL in bundleURLs {
+            guard
+                let resourceBundle = Bundle(url: bundleURL),
+                let imageURL = resourceBundle.url(forResource: name, withExtension: "png"),
+                let image = NSImage(contentsOf: imageURL)
+            else {
+                continue
+            }
+            return image
+        }
+
+        return nil
     }
 }
 

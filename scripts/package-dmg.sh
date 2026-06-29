@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="MobiVerse"
-VERSION="${VERSION:-2.0.0}"
+VERSION="${VERSION:-2.0.1}"
 APP_VERSION="${APP_VERSION:-$VERSION}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 SIGN_DMG_IDENTITY="${SIGN_DMG_IDENTITY:-$SIGN_IDENTITY}"
