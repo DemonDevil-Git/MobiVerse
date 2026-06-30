@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.0.1.dmg"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20macOS%20%E7%89%88-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse macOS 版"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.1.0.dmg"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20macOS%20%E7%89%88-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse macOS 版"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC" alt="最新版本"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
 </p>
@@ -74,8 +74,8 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 
 ## 安装
 
-1. 下载最新 DMG：[MobiVerse-2.0.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.0.1.dmg)。
-2. 打开 `MobiVerse-2.0.1.dmg`。
+1. 下载最新 DMG：[MobiVerse-2.1.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.1.0.dmg)。
+2. 打开 `MobiVerse-2.1.0.dmg`。
 3. 将 `MobiVerse.app` 拖入 `Applications`。
 4. 启动 MobiVerse，把支持的文件拖入窗口，或在 Finder 中选择用 MobiVerse 打开。
 
@@ -97,6 +97,14 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 文本 EPUB 会回退到简单的 WebView 预览。
 
 PDF 转换会把每一页按原始视觉效果保存为固定布局图像，因此 PDF 中可选择的文字、链接、批注和表单不会保留到 EPUB 中。
+
+## 2.1 新增内容
+
+- 面向 PDF 漫画和图像型书籍的 PDFKit 原生快速路径。
+- 显示真实的逐页 PDF 转换进度。
+- 逐页渲染并及时释放资源，降低峰值内存占用。
+- 不再执行 Calibre PDF 重排和重复 EPUB 重建。
+- 实测约 400MB PDF 漫画可在 10 秒内完成转换；实际速度取决于文件结构与硬件。
 
 ## 2.0 新增内容
 
@@ -179,7 +187,7 @@ scripts/package-dmg.sh
 生成的安装镜像位于：
 
 ```text
-.build/MobiVerse-2.0.1.dmg
+.build/MobiVerse-2.1.0.dmg
 ```
 
 默认开发构建使用 ad-hoc 签名，适合本地测试；但从互联网下载后会被 macOS Gatekeeper 拦截。

@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.0.1.dmg"><img src="https://img.shields.io/badge/Download%20for%20macOS-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse for macOS"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.1.0.dmg"><img src="https://img.shields.io/badge/Download%20for%20macOS-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse for macOS"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=Latest%20release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
 </p>
@@ -74,8 +74,8 @@ MobiVerse does not remove DRM. Protected or unreadable files are reported clearl
 
 ## Install
 
-1. Download the latest DMG: [MobiVerse-2.0.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.0.1.dmg).
-2. Open `MobiVerse-2.0.1.dmg`.
+1. Download the latest DMG: [MobiVerse-2.1.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.1.0.dmg).
+2. Open `MobiVerse-2.1.0.dmg`.
 3. Drag `MobiVerse.app` into `Applications`.
 4. Launch MobiVerse and drop supported files into the window, or open supported files with MobiVerse from Finder.
 
@@ -97,6 +97,14 @@ The built-in preview focuses on comic/image-page EPUBs:
 Text EPUBs fall back to a simple WebView preview.
 
 PDF conversion preserves each page visually as a fixed-layout image. Selectable PDF text, links, annotations, and forms are not retained in the EPUB output.
+
+## What's New in 2.1
+
+- Native PDFKit fast path for PDF comics and image-heavy books.
+- Real page-by-page PDF conversion progress.
+- Lower peak memory use through sequential page rendering.
+- No Calibre PDF reflow or duplicate EPUB rebuild.
+- User-verified conversion of a roughly 400MB PDF comic in under 10 seconds; actual performance varies by file and hardware.
 
 ## What's New in 2.0
 
@@ -179,7 +187,7 @@ scripts/package-dmg.sh
 The generated installer image is written to:
 
 ```text
-.build/MobiVerse-2.0.1.dmg
+.build/MobiVerse-2.1.0.dmg
 ```
 
 Development builds use ad-hoc signing by default. They are suitable for local testing, but macOS Gatekeeper will block them after download from the internet.
