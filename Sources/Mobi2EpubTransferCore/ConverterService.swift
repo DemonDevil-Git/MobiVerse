@@ -23,12 +23,47 @@ public struct ConversionServiceError: Error, Equatable {
 public struct ConversionRunResult: Equatable, Sendable {
     public let outputURL: URL
     public let log: String
+    public let strategy: ConversionStrategy
+    public let postProcessReport: String?
 
-    public init(outputURL: URL, log: String) {
+    public init(
+        outputURL: URL,
+        log: String,
+        strategy: ConversionStrategy = .calibre,
+        postProcessReport: String? = nil
+    ) {
         self.outputURL = outputURL
         self.log = log
+        self.strategy = strategy
+        self.postProcessReport = postProcessReport
     }
 }
+
+public enum ConversionStrategy: Equatable, Sendable {
+    case calibre
+    case nativePDFFixedLayout
+}
+
+public struct ConversionProgressUpdate: Equatable, Sendable {
+    public let fraction: Double
+    public let message: String
+    public let completedUnitCount: Int
+    public let totalUnitCount: Int
+
+    public init(
+        fraction: Double,
+        message: String,
+        completedUnitCount: Int,
+        totalUnitCount: Int
+    ) {
+        self.fraction = fraction
+        self.message = message
+        self.completedUnitCount = completedUnitCount
+        self.totalUnitCount = totalUnitCount
+    }
+}
+
+public typealias ConversionProgressHandler = @Sendable (ConversionProgressUpdate) -> Void
 
 public struct ConverterService: Sendable {
     private let ebookConvertURL: URL?
@@ -39,7 +74,19 @@ public struct ConverterService: Sendable {
         self.runner = runner
     }
 
-    public func convert(inputURL: URL, outputURL: URL) async throws -> ConversionRunResult {
+    public func convert(
+        inputURL: URL,
+        outputURL: URL,
+        progressHandler: ConversionProgressHandler? = nil
+    ) async throws -> ConversionRunResult {
+        if inputURL.pathExtension.lowercased() == "pdf" {
+            return try await PDFEpubConverter(runner: runner).convert(
+                inputURL: inputURL,
+                outputURL: outputURL,
+                progressHandler: progressHandler
+            )
+        }
+
         guard let ebookConvertURL else {
             throw ConversionServiceError(
                 kind: .missingCalibre,

@@ -172,13 +172,17 @@ final class ConversionViewModel: ObservableObject {
     }
 
     private func processTask(at index: Int) async {
+        let taskID = tasks[index].id
+        let usesNativePDFConversion = tasks[index].inputURL.pathExtension.lowercased() == "pdf"
         tasks[index].status = .checkingTools
         tasks[index].progress = 0.1
-        tasks[index].statusMessage = "Checking Calibre and EPUBCheck"
+        tasks[index].statusMessage = usesNativePDFConversion
+            ? "Preparing native PDF conversion"
+            : "Checking Calibre and EPUBCheck"
         persistTasks()
         refreshToolchain()
 
-        guard toolchain.hasCalibre else {
+        guard usesNativePDFConversion || toolchain.hasCalibre else {
             tasks[index].status = .failed
             tasks[index].progress = 1
             tasks[index].statusMessage = toolchain.missingCalibreMessage ?? "Calibre CLI is missing"
@@ -193,18 +197,34 @@ final class ConversionViewModel: ObservableObject {
 
             let converter = ConverterService(ebookConvertURL: toolchain.ebookConvertURL)
             tasks[index].status = .converting
-            tasks[index].progress = 0.45
-            tasks[index].statusMessage = "Converting with Calibre"
+            tasks[index].progress = 0.12
+            tasks[index].statusMessage = usesNativePDFConversion
+                ? "Reading PDF pages"
+                : "Converting with Calibre"
             persistTasks()
 
-            let conversion = try await converter.convert(inputURL: tasks[index].inputURL, outputURL: outputURL)
+            let conversion = try await converter.convert(
+                inputURL: tasks[index].inputURL,
+                outputURL: outputURL
+            ) { [weak self] update in
+                Task { @MainActor in
+                    self?.applyConversionProgress(update, toTaskID: taskID)
+                }
+            }
             tasks[index].log = conversion.log
 
-            tasks[index].statusMessage = "Optimizing comic EPUB layout"
-            tasks[index].progress = 0.65
-            persistTasks()
-            let postProcessor = ComicEpubPostProcessor()
-            let postProcessResult = try await postProcessor.process(epubURL: outputURL)
+            let postProcessReport: String
+            if let completedReport = conversion.postProcessReport {
+                tasks[index].statusMessage = "Preparing validation report"
+                tasks[index].progress = 0.8
+                postProcessReport = completedReport
+            } else {
+                tasks[index].statusMessage = "Optimizing comic EPUB layout"
+                tasks[index].progress = 0.65
+                persistTasks()
+                let postProcessor = ComicEpubPostProcessor()
+                postProcessReport = try await postProcessor.process(epubURL: outputURL).reportText
+            }
 
             let reportURL = outputPolicy.reportURL(for: outputURL)
             let validator = EpubValidator(epubCheckURL: toolchain.epubCheckURL)
@@ -217,7 +237,7 @@ final class ConversionViewModel: ObservableObject {
                 epubURL: outputURL,
                 reportURL: reportURL,
                 conversionLog: conversion.log,
-                postProcessReport: postProcessResult.reportText
+                postProcessReport: postProcessReport
             )
             tasks[index].reportURL = validation.reportURL
             tasks[index].progress = 1
@@ -263,6 +283,14 @@ final class ConversionViewModel: ObservableObject {
 
     private func persistTasks() {
         historyStore.save(tasks)
+    }
+
+    private func applyConversionProgress(_ update: ConversionProgressUpdate, toTaskID taskID: UUID) {
+        guard let index = tasks.firstIndex(where: { $0.id == taskID }), tasks[index].status == .converting else {
+            return
+        }
+        tasks[index].progress = 0.12 + min(max(update.fraction, 0), 1) * 0.66
+        tasks[index].statusMessage = update.message
     }
 
     private func requestCoverImagesForCompletedTasks() {

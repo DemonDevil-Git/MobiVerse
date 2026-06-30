@@ -32,6 +32,9 @@
 - **Made for comics and illustrated books**  
   Image pages are rebuilt into clean fixed-layout EPUB3 pages with stable sizing, no unexpected margins, and right-to-left manga metadata.
 
+- **Fast native PDF conversion**
+  PDF comics bypass Calibre reflow and render directly into a fixed-layout EPUB with real per-page progress, lower peak memory use, and no duplicate EPUB rebuild.
+
 - **Read-first opening flow**
   Open an EPUB instantly, or open MOBI/AZW/comic/PDF sources and let MobiVerse quietly convert them before showing the preview.
 
@@ -65,7 +68,7 @@
 | MOBI, AZW, AZW3 | Kindle-style ebooks without DRM |
 | CBZ, ZIP | Comic archives made from ordered image files |
 | CBR | RAR-based comic archives readable by Calibre |
-| PDF | PDF comics and image-heavy documents |
+| PDF | Native fast path for PDF comics and image-heavy documents |
 
 MobiVerse does not remove DRM. Protected or unreadable files are reported clearly.
 
@@ -92,6 +95,8 @@ The built-in preview focuses on comic/image-page EPUBs:
 - current-page recentering after fullscreen/window size changes
 
 Text EPUBs fall back to a simple WebView preview.
+
+PDF conversion preserves each page visually as a fixed-layout image. Selectable PDF text, links, annotations, and forms are not retained in the EPUB output.
 
 ## What's New in 2.0
 

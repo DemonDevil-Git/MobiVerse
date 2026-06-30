@@ -84,6 +84,18 @@ public struct ComicEpubPostProcessor {
         let title = title(fromOPFAt: packageDocumentURL(in: workingDirectory))
             ?? epubURL.deletingPathExtension().lastPathComponent
 
+        return try await buildFixedLayoutEPUB(
+            title: title,
+            imageFiles: imageFiles,
+            outputURL: epubURL
+        )
+    }
+
+    public func buildFixedLayoutEPUB(
+        title: String,
+        imageFiles: [URL],
+        outputURL: URL
+    ) async throws -> ComicPostProcessResult {
         let rebuiltDirectory = fileManager.temporaryDirectory
             .appendingPathComponent("MobiVerseRebuiltEPUB")
             .appendingPathComponent(UUID().uuidString)
@@ -99,11 +111,10 @@ public struct ComicEpubPostProcessor {
         )
         let tocEntryCount = tocEntries(for: pages).count
 
-        let replacementURL = epubURL
+        let replacementURL = outputURL
             .deletingLastPathComponent()
-            .appendingPathComponent(".\(epubURL.deletingPathExtension().lastPathComponent)-postprocessed.epub")
+            .appendingPathComponent(".\(outputURL.deletingPathExtension().lastPathComponent)-postprocessed.epub")
         try? fileManager.removeItem(at: replacementURL)
-        try? fileManager.removeItem(at: epubURL)
 
         let mimetypeZipResult = try await runner.run(
             executableURL: URL(fileURLWithPath: "/usr/bin/zip"),
@@ -116,13 +127,17 @@ public struct ComicEpubPostProcessor {
 
         let zipResult = try await runner.run(
             executableURL: URL(fileURLWithPath: "/usr/bin/zip"),
-            arguments: ["-X", "-q", "-r", replacementURL.path, "META-INF", "OEBPS"],
+            arguments: ["-X", "-q", "-0", "-r", replacementURL.path, "META-INF", "OEBPS"],
             currentDirectoryURL: rebuiltDirectory
         )
         guard zipResult.exitCode == 0 else {
             throw ComicPostProcessError.zipFailed(zipResult.output)
         }
-        try fileManager.moveItem(at: replacementURL, to: epubURL)
+        if fileManager.fileExists(atPath: outputURL.path) {
+            _ = try fileManager.replaceItemAt(outputURL, withItemAt: replacementURL)
+        } else {
+            try fileManager.moveItem(at: replacementURL, to: outputURL)
+        }
 
         return ComicPostProcessResult(
             pageCount: pages.count,
