@@ -720,6 +720,8 @@ private final class PreviewGestureRouter: ObservableObject {
     var handleSwipeChanged: ((Double) -> Void)?
     var handleSwipeEnded: ((Double) -> Void)?
     var zoomBy: ((Double) -> Void)?
+    var moveBackward: (() -> Void)?
+    var moveForward: (() -> Void)?
 
     private var horizontalSwipeDelta = 0.0
     private var isTrackingHorizontalSwipe = false
@@ -732,6 +734,8 @@ private final class PreviewGestureRouter: ObservableObject {
         handleSwipeChanged = nil
         handleSwipeEnded = nil
         zoomBy = nil
+        moveBackward = nil
+        moveForward = nil
         finishHorizontalSwipe()
     }
 
@@ -748,6 +752,8 @@ private final class PreviewGestureRouter: ObservableObject {
             return nil
         case .scrollWheel:
             return handleScrollWheelEvent(event) ? nil : event
+        case .keyDown:
+            return handleKeyDownEvent(event) ? nil : event
         default:
             return event
         }
@@ -763,6 +769,27 @@ private final class PreviewGestureRouter: ObservableObject {
 
     func handleSwipe(_ event: NSEvent) {
         handleSwipeEvent(event)
+    }
+
+    private func handleKeyDownEvent(_ event: NSEvent) -> Bool {
+        guard moveBackward != nil || moveForward != nil else { return false }
+        let unsupportedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
+        guard event.modifierFlags.intersection(unsupportedModifiers).isEmpty else { return false }
+
+        switch event.keyCode {
+        case 123:
+            if canMoveBackward {
+                moveBackward?()
+            }
+            return true
+        case 124:
+            if canMoveForward {
+                moveForward?()
+            }
+            return true
+        default:
+            return false
+        }
     }
 
     private func handleScrollWheelEvent(_ event: NSEvent) -> Bool {
@@ -963,7 +990,7 @@ private final class EpubPreviewWindowController: NSWindowController, NSWindowDel
     }
 
     private func installEventMonitor() {
-        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .magnify, .swipe]) { [weak self] event in
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .magnify, .swipe, .keyDown]) { [weak self] event in
             guard
                 let self,
                 let window = self.window,
@@ -1512,6 +1539,8 @@ private struct ComicImagePreview: View {
         gestureRouter.handleSwipeChanged = nil
         gestureRouter.handleSwipeEnded = nil
         gestureRouter.zoomBy = zoomBy
+        gestureRouter.moveBackward = moveBackward
+        gestureRouter.moveForward = moveForward
     }
 
     private func fittedPageSize(for page: EpubImagePreviewPage, in containerSize: CGSize) -> CGSize {
