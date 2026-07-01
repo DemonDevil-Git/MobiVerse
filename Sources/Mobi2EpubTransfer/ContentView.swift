@@ -921,6 +921,7 @@ private final class EpubPreviewWindowController: NSWindowController, NSWindowDel
     var onClose: (() -> Void)?
     private let windowState = EpubPreviewWindowState()
     private let gestureRouter = PreviewGestureRouter()
+    private let readingPositionStore = PreviewReadingPositionStore()
     private var eventMonitor: Any?
 
     init(book: EpubPreviewBook) {
@@ -943,6 +944,10 @@ private final class EpubPreviewWindowController: NSWindowController, NSWindowDel
                 book: book,
                 windowState: windowState,
                 gestureRouter: gestureRouter,
+                initialPageIndex: readingPositionStore.pageIndex(for: book.epubURL) ?? 0,
+                savePageIndex: { [readingPositionStore, epubURL = book.epubURL] pageIndex in
+                    readingPositionStore.save(pageIndex: pageIndex, for: epubURL)
+                },
                 toggleFullScreen: { [weak window] in
                     guard let window else { return }
                     window.makeKeyAndOrderFront(nil)
@@ -1315,6 +1320,8 @@ private struct EpubPreviewView: View {
     let book: EpubPreviewBook
     @ObservedObject var windowState: EpubPreviewWindowState
     let gestureRouter: PreviewGestureRouter
+    let initialPageIndex: Int
+    let savePageIndex: (Int) -> Void
     let toggleFullScreen: () -> Void
     let close: () -> Void
 
@@ -1356,7 +1363,12 @@ private struct EpubPreviewView: View {
 
             switch book.mode {
             case .imagePages(let pages):
-                ComicImagePreview(pages: pages, gestureRouter: gestureRouter)
+                ComicImagePreview(
+                    pages: pages,
+                    gestureRouter: gestureRouter,
+                    initialPageIndex: initialPageIndex,
+                    savePageIndex: savePageIndex
+                )
             case .web(let startURL):
                 EpubWebPreview(startURL: startURL, readAccessURL: book.contentRootDirectory)
                     .onAppear {
@@ -1389,9 +1401,24 @@ private struct EpubPreviewView: View {
 private struct ComicImagePreview: View {
     let pages: [EpubImagePreviewPage]
     @ObservedObject var gestureRouter: PreviewGestureRouter
-    @State private var pageIndex = 0
+    let savePageIndex: (Int) -> Void
+    @State private var pageIndex: Int
     @State private var visiblePageIndex: Int?
     @State private var zoom = 1.0
+
+    init(
+        pages: [EpubImagePreviewPage],
+        gestureRouter: PreviewGestureRouter,
+        initialPageIndex: Int,
+        savePageIndex: @escaping (Int) -> Void
+    ) {
+        let restoredPageIndex = min(max(initialPageIndex, 0), max(pages.count - 1, 0))
+        self.pages = pages
+        self.gestureRouter = gestureRouter
+        self.savePageIndex = savePageIndex
+        _pageIndex = State(initialValue: restoredPageIndex)
+        _visiblePageIndex = State(initialValue: restoredPageIndex)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1436,9 +1463,11 @@ private struct ComicImagePreview: View {
             }
             .onAppear(perform: configureGestureRouter)
             .onDisappear {
+                savePageIndex(pageIndex)
                 gestureRouter.resetHandlers()
             }
-            .onChange(of: pageIndex) { _, _ in
+            .onChange(of: pageIndex) { _, newPageIndex in
+                savePageIndex(newPageIndex)
                 configureGestureRouter()
             }
             .onChange(of: pages.count) { _, _ in
@@ -1456,7 +1485,9 @@ private struct ComicImagePreview: View {
                 Slider(
                     value: Binding(
                         get: { Double(pageIndex) },
-                        set: { pageIndex = min(max(Int($0.rounded()), 0), max(pages.count - 1, 0)) }
+                        set: {
+                            visiblePageIndex = min(max(Int($0.rounded()), 0), max(pages.count - 1, 0))
+                        }
                     ),
                     in: 0...Double(max(pages.count - 1, 0))
                 )
