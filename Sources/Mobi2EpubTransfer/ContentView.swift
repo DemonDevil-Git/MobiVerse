@@ -9,7 +9,7 @@ struct ContentView: View {
     @State private var isSidebarVisible = true
     @State private var isToolStatusPresented = false
     @State private var previewWindowController: EpubPreviewWindowController?
-    @State private var previewError: PreviewError?
+    @State private var presentedAlert: ContentAlert?
     @State private var readingPreparation: ReadingPreparation?
     @State private var taskLayout = TaskLayout.grid
 
@@ -56,12 +56,30 @@ struct ContentView: View {
                 openBooks(urls)
             }
         }
-        .alert(item: $previewError) { error in
-            Alert(
-                title: Text("Preview unavailable"),
-                message: Text(error.message),
-                dismissButton: .default(Text("OK"))
-            )
+        .alert(item: $presentedAlert) { alert in
+            switch alert {
+            case .previewError(let message):
+                Alert(
+                    title: Text("Preview unavailable"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK"))
+                )
+            case .deleteConfirmation(let task):
+                Alert(
+                    title: Text(deleteConfirmationTitle(for: task)),
+                    message: Text(deleteConfirmationMessage(for: task)),
+                    primaryButton: .destructive(Text("Delete")) {
+                        deleteOutputFile(for: task)
+                    },
+                    secondaryButton: .cancel()
+                )
+            case .deletionError(let message):
+                Alert(
+                    title: Text("Couldn’t delete EPUB"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
         }
         .overlay {
             if let readingPreparation {
@@ -244,8 +262,8 @@ struct ContentView: View {
                             viewModel.revealOutput(for: task)
                         } openReport: {
                             viewModel.openReport(for: task)
-                        } deleteHistory: {
-                            viewModel.deleteTask(task)
+                        } deleteOutput: {
+                            presentedAlert = .deleteConfirmation(task)
                         }
                         .onAppear {
                             viewModel.requestCoverImage(for: task)
@@ -366,7 +384,7 @@ struct ContentView: View {
         case .succeeded, .succeededWithWarnings:
             guard let outputURL = task.outputURL, !viewModel.isOutputMissing(for: task) else {
                 readingPreparation = nil
-                previewError = PreviewError(message: "The converted EPUB is no longer available at the saved output path.")
+                presentedAlert = .previewError("The converted EPUB is no longer available at the saved output path.")
                 return
             }
             readingPreparation = ReadingPreparation(
@@ -377,7 +395,7 @@ struct ContentView: View {
             openEpubPreview(outputURL)
         case .failed:
             readingPreparation = nil
-            previewError = PreviewError(message: task.statusMessage)
+            presentedAlert = .previewError(task.statusMessage)
         }
     }
 
@@ -426,22 +444,58 @@ struct ContentView: View {
                 try? FileManager.default.removeItem(at: extractionDirectory)
                 await MainActor.run {
                     readingPreparation = nil
-                    previewError = PreviewError(message: error.message)
+                    presentedAlert = .previewError(error.message)
                 }
             } catch {
                 try? FileManager.default.removeItem(at: extractionDirectory)
                 await MainActor.run {
                     readingPreparation = nil
-                    previewError = PreviewError(message: error.localizedDescription)
+                    presentedAlert = .previewError(error.localizedDescription)
                 }
+            }
+        }
+    }
+
+    private func deleteConfirmationMessage(for task: ConversionTask) -> String {
+        guard let outputURL = task.outputURL, FileManager.default.fileExists(atPath: outputURL.path) else {
+            return "This conversion will be removed from your history. No local EPUB file is available to delete."
+        }
+        return "\"\(outputURL.lastPathComponent)\" will be permanently deleted from this Mac, and this conversion will be removed from your history."
+    }
+
+    private func deleteConfirmationTitle(for task: ConversionTask) -> String {
+        guard let outputURL = task.outputURL, FileManager.default.fileExists(atPath: outputURL.path) else {
+            return "Remove conversion history?"
+        }
+        return "Delete local EPUB?"
+    }
+
+    private func deleteOutputFile(for task: ConversionTask) {
+        do {
+            try viewModel.deleteTaskAndOutputFile(task)
+        } catch {
+            DispatchQueue.main.async {
+                presentedAlert = .deletionError(error.localizedDescription)
             }
         }
     }
 }
 
-private struct PreviewError: Identifiable {
-    let id = UUID()
-    let message: String
+private enum ContentAlert: Identifiable {
+    case previewError(String)
+    case deleteConfirmation(ConversionTask)
+    case deletionError(String)
+
+    var id: String {
+        switch self {
+        case .previewError(let message):
+            "preview-\(message)"
+        case .deleteConfirmation(let task):
+            "delete-\(task.id.uuidString)"
+        case .deletionError(let message):
+            "deletion-error-\(message)"
+        }
+    }
 }
 
 private enum MobiPalette {
@@ -1164,7 +1218,7 @@ private struct TaskRow: View {
     let preview: () -> Void
     let revealOutput: () -> Void
     let openReport: () -> Void
-    let deleteHistory: () -> Void
+    let deleteOutput: () -> Void
 
     var body: some View {
         VStack(spacing: 12) {
@@ -1198,7 +1252,7 @@ private struct TaskRow: View {
                 TaskActionButton(title: "Preview", icon: "book.pages", enabled: canPreview, showsTitle: true, action: preview)
                 TaskActionButton(title: "Reveal", icon: "folder", enabled: task.outputURL != nil && !isOutputMissing, showsTitle: true, action: revealOutput)
                 TaskActionButton(title: "Report", icon: "doc.text", enabled: task.reportURL != nil, showsTitle: true, action: openReport)
-                TaskActionButton(title: "Delete", icon: "trash", enabled: canDelete, role: .destructive, action: deleteHistory)
+                TaskActionButton(title: "Delete EPUB", icon: "trash", enabled: canDelete, role: .destructive, action: deleteOutput)
             }
         }
         .padding(14)
@@ -1304,12 +1358,13 @@ private struct TaskActionButton: View {
             }
             .font(.caption.weight(.medium))
             .frame(maxWidth: showsTitle ? .infinity : nil)
-            .frame(height: 28)
+            .frame(height: 32)
             .padding(.horizontal, showsTitle ? 7 : 9)
+            .foregroundStyle(role == .destructive ? MobiPalette.coral : MobiPalette.ink.opacity(0.65))
+            .background(MobiPalette.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
-        .foregroundStyle(role == .destructive ? MobiPalette.coral : MobiPalette.ink.opacity(0.65))
-        .background(MobiPalette.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .opacity(enabled ? 1 : 0.3)
         .disabled(!enabled)
         .help(title)
