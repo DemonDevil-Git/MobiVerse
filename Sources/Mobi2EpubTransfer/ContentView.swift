@@ -9,7 +9,7 @@ struct ContentView: View {
     @State private var isSidebarVisible = true
     @State private var isToolStatusPresented = false
     @State private var previewWindowController: EpubPreviewWindowController?
-    @State private var previewError: PreviewError?
+    @State private var presentedAlert: ContentAlert?
     @State private var readingPreparation: ReadingPreparation?
     @State private var taskLayout = TaskLayout.grid
 
@@ -56,12 +56,30 @@ struct ContentView: View {
                 openBooks(urls)
             }
         }
-        .alert(item: $previewError) { error in
-            Alert(
-                title: Text("Preview unavailable"),
-                message: Text(error.message),
-                dismissButton: .default(Text("OK"))
-            )
+        .alert(item: $presentedAlert) { alert in
+            switch alert {
+            case .previewError(let message):
+                Alert(
+                    title: Text("Preview unavailable"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK"))
+                )
+            case .deleteConfirmation(let task):
+                Alert(
+                    title: Text(deleteConfirmationTitle(for: task)),
+                    message: Text(deleteConfirmationMessage(for: task)),
+                    primaryButton: .destructive(Text("Delete")) {
+                        deleteOutputFile(for: task)
+                    },
+                    secondaryButton: .cancel()
+                )
+            case .deletionError(let message):
+                Alert(
+                    title: Text("Couldn’t delete EPUB"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
         }
         .overlay {
             if let readingPreparation {
@@ -244,8 +262,8 @@ struct ContentView: View {
                             viewModel.revealOutput(for: task)
                         } openReport: {
                             viewModel.openReport(for: task)
-                        } deleteHistory: {
-                            viewModel.deleteTask(task)
+                        } deleteOutput: {
+                            presentedAlert = .deleteConfirmation(task)
                         }
                         .onAppear {
                             viewModel.requestCoverImage(for: task)
@@ -366,7 +384,7 @@ struct ContentView: View {
         case .succeeded, .succeededWithWarnings:
             guard let outputURL = task.outputURL, !viewModel.isOutputMissing(for: task) else {
                 readingPreparation = nil
-                previewError = PreviewError(message: "The converted EPUB is no longer available at the saved output path.")
+                presentedAlert = .previewError("The converted EPUB is no longer available at the saved output path.")
                 return
             }
             readingPreparation = ReadingPreparation(
@@ -377,7 +395,7 @@ struct ContentView: View {
             openEpubPreview(outputURL)
         case .failed:
             readingPreparation = nil
-            previewError = PreviewError(message: task.statusMessage)
+            presentedAlert = .previewError(task.statusMessage)
         }
     }
 
@@ -426,22 +444,58 @@ struct ContentView: View {
                 try? FileManager.default.removeItem(at: extractionDirectory)
                 await MainActor.run {
                     readingPreparation = nil
-                    previewError = PreviewError(message: error.message)
+                    presentedAlert = .previewError(error.message)
                 }
             } catch {
                 try? FileManager.default.removeItem(at: extractionDirectory)
                 await MainActor.run {
                     readingPreparation = nil
-                    previewError = PreviewError(message: error.localizedDescription)
+                    presentedAlert = .previewError(error.localizedDescription)
                 }
+            }
+        }
+    }
+
+    private func deleteConfirmationMessage(for task: ConversionTask) -> String {
+        guard let outputURL = task.outputURL, FileManager.default.fileExists(atPath: outputURL.path) else {
+            return "This conversion will be removed from your history. No local EPUB file is available to delete."
+        }
+        return "\"\(outputURL.lastPathComponent)\" will be permanently deleted from this Mac, and this conversion will be removed from your history."
+    }
+
+    private func deleteConfirmationTitle(for task: ConversionTask) -> String {
+        guard let outputURL = task.outputURL, FileManager.default.fileExists(atPath: outputURL.path) else {
+            return "Remove conversion history?"
+        }
+        return "Delete local EPUB?"
+    }
+
+    private func deleteOutputFile(for task: ConversionTask) {
+        do {
+            try viewModel.deleteTaskAndOutputFile(task)
+        } catch {
+            DispatchQueue.main.async {
+                presentedAlert = .deletionError(error.localizedDescription)
             }
         }
     }
 }
 
-private struct PreviewError: Identifiable {
-    let id = UUID()
-    let message: String
+private enum ContentAlert: Identifiable {
+    case previewError(String)
+    case deleteConfirmation(ConversionTask)
+    case deletionError(String)
+
+    var id: String {
+        switch self {
+        case .previewError(let message):
+            "preview-\(message)"
+        case .deleteConfirmation(let task):
+            "delete-\(task.id.uuidString)"
+        case .deletionError(let message):
+            "deletion-error-\(message)"
+        }
+    }
 }
 
 private enum MobiPalette {
@@ -720,6 +774,8 @@ private final class PreviewGestureRouter: ObservableObject {
     var handleSwipeChanged: ((Double) -> Void)?
     var handleSwipeEnded: ((Double) -> Void)?
     var zoomBy: ((Double) -> Void)?
+    var moveBackward: (() -> Void)?
+    var moveForward: (() -> Void)?
 
     private var horizontalSwipeDelta = 0.0
     private var isTrackingHorizontalSwipe = false
@@ -732,6 +788,8 @@ private final class PreviewGestureRouter: ObservableObject {
         handleSwipeChanged = nil
         handleSwipeEnded = nil
         zoomBy = nil
+        moveBackward = nil
+        moveForward = nil
         finishHorizontalSwipe()
     }
 
@@ -748,6 +806,8 @@ private final class PreviewGestureRouter: ObservableObject {
             return nil
         case .scrollWheel:
             return handleScrollWheelEvent(event) ? nil : event
+        case .keyDown:
+            return handleKeyDownEvent(event) ? nil : event
         default:
             return event
         }
@@ -763,6 +823,27 @@ private final class PreviewGestureRouter: ObservableObject {
 
     func handleSwipe(_ event: NSEvent) {
         handleSwipeEvent(event)
+    }
+
+    private func handleKeyDownEvent(_ event: NSEvent) -> Bool {
+        guard moveBackward != nil || moveForward != nil else { return false }
+        let unsupportedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
+        guard event.modifierFlags.intersection(unsupportedModifiers).isEmpty else { return false }
+
+        switch event.keyCode {
+        case 123:
+            if canMoveBackward {
+                moveBackward?()
+            }
+            return true
+        case 124:
+            if canMoveForward {
+                moveForward?()
+            }
+            return true
+        default:
+            return false
+        }
     }
 
     private func handleScrollWheelEvent(_ event: NSEvent) -> Bool {
@@ -894,6 +975,7 @@ private final class EpubPreviewWindowController: NSWindowController, NSWindowDel
     var onClose: (() -> Void)?
     private let windowState = EpubPreviewWindowState()
     private let gestureRouter = PreviewGestureRouter()
+    private let readingPositionStore = PreviewReadingPositionStore()
     private var eventMonitor: Any?
 
     init(book: EpubPreviewBook) {
@@ -916,6 +998,10 @@ private final class EpubPreviewWindowController: NSWindowController, NSWindowDel
                 book: book,
                 windowState: windowState,
                 gestureRouter: gestureRouter,
+                initialPageIndex: readingPositionStore.pageIndex(for: book.epubURL) ?? 0,
+                savePageIndex: { [readingPositionStore, epubURL = book.epubURL] pageIndex in
+                    readingPositionStore.save(pageIndex: pageIndex, for: epubURL)
+                },
                 toggleFullScreen: { [weak window] in
                     guard let window else { return }
                     window.makeKeyAndOrderFront(nil)
@@ -963,7 +1049,7 @@ private final class EpubPreviewWindowController: NSWindowController, NSWindowDel
     }
 
     private func installEventMonitor() {
-        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .magnify, .swipe]) { [weak self] event in
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .magnify, .swipe, .keyDown]) { [weak self] event in
             guard
                 let self,
                 let window = self.window,
@@ -1132,7 +1218,7 @@ private struct TaskRow: View {
     let preview: () -> Void
     let revealOutput: () -> Void
     let openReport: () -> Void
-    let deleteHistory: () -> Void
+    let deleteOutput: () -> Void
 
     var body: some View {
         VStack(spacing: 12) {
@@ -1166,7 +1252,7 @@ private struct TaskRow: View {
                 TaskActionButton(title: "Preview", icon: "book.pages", enabled: canPreview, showsTitle: true, action: preview)
                 TaskActionButton(title: "Reveal", icon: "folder", enabled: task.outputURL != nil && !isOutputMissing, showsTitle: true, action: revealOutput)
                 TaskActionButton(title: "Report", icon: "doc.text", enabled: task.reportURL != nil, showsTitle: true, action: openReport)
-                TaskActionButton(title: "Delete", icon: "trash", enabled: canDelete, role: .destructive, action: deleteHistory)
+                TaskActionButton(title: "Delete EPUB", icon: "trash", enabled: canDelete, role: .destructive, action: deleteOutput)
             }
         }
         .padding(14)
@@ -1272,12 +1358,13 @@ private struct TaskActionButton: View {
             }
             .font(.caption.weight(.medium))
             .frame(maxWidth: showsTitle ? .infinity : nil)
-            .frame(height: 28)
+            .frame(height: 32)
             .padding(.horizontal, showsTitle ? 7 : 9)
+            .foregroundStyle(role == .destructive ? MobiPalette.coral : MobiPalette.ink.opacity(0.65))
+            .background(MobiPalette.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
-        .foregroundStyle(role == .destructive ? MobiPalette.coral : MobiPalette.ink.opacity(0.65))
-        .background(MobiPalette.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .opacity(enabled ? 1 : 0.3)
         .disabled(!enabled)
         .help(title)
@@ -1288,6 +1375,8 @@ private struct EpubPreviewView: View {
     let book: EpubPreviewBook
     @ObservedObject var windowState: EpubPreviewWindowState
     let gestureRouter: PreviewGestureRouter
+    let initialPageIndex: Int
+    let savePageIndex: (Int) -> Void
     let toggleFullScreen: () -> Void
     let close: () -> Void
 
@@ -1329,7 +1418,12 @@ private struct EpubPreviewView: View {
 
             switch book.mode {
             case .imagePages(let pages):
-                ComicImagePreview(pages: pages, gestureRouter: gestureRouter)
+                ComicImagePreview(
+                    pages: pages,
+                    gestureRouter: gestureRouter,
+                    initialPageIndex: initialPageIndex,
+                    savePageIndex: savePageIndex
+                )
             case .web(let startURL):
                 EpubWebPreview(startURL: startURL, readAccessURL: book.contentRootDirectory)
                     .onAppear {
@@ -1362,9 +1456,24 @@ private struct EpubPreviewView: View {
 private struct ComicImagePreview: View {
     let pages: [EpubImagePreviewPage]
     @ObservedObject var gestureRouter: PreviewGestureRouter
-    @State private var pageIndex = 0
+    let savePageIndex: (Int) -> Void
+    @State private var pageIndex: Int
     @State private var visiblePageIndex: Int?
     @State private var zoom = 1.0
+
+    init(
+        pages: [EpubImagePreviewPage],
+        gestureRouter: PreviewGestureRouter,
+        initialPageIndex: Int,
+        savePageIndex: @escaping (Int) -> Void
+    ) {
+        let restoredPageIndex = min(max(initialPageIndex, 0), max(pages.count - 1, 0))
+        self.pages = pages
+        self.gestureRouter = gestureRouter
+        self.savePageIndex = savePageIndex
+        _pageIndex = State(initialValue: restoredPageIndex)
+        _visiblePageIndex = State(initialValue: restoredPageIndex)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1409,9 +1518,11 @@ private struct ComicImagePreview: View {
             }
             .onAppear(perform: configureGestureRouter)
             .onDisappear {
+                savePageIndex(pageIndex)
                 gestureRouter.resetHandlers()
             }
-            .onChange(of: pageIndex) { _, _ in
+            .onChange(of: pageIndex) { _, newPageIndex in
+                savePageIndex(newPageIndex)
                 configureGestureRouter()
             }
             .onChange(of: pages.count) { _, _ in
@@ -1429,7 +1540,9 @@ private struct ComicImagePreview: View {
                 Slider(
                     value: Binding(
                         get: { Double(pageIndex) },
-                        set: { pageIndex = min(max(Int($0.rounded()), 0), max(pages.count - 1, 0)) }
+                        set: {
+                            visiblePageIndex = min(max(Int($0.rounded()), 0), max(pages.count - 1, 0))
+                        }
                     ),
                     in: 0...Double(max(pages.count - 1, 0))
                 )
@@ -1512,6 +1625,8 @@ private struct ComicImagePreview: View {
         gestureRouter.handleSwipeChanged = nil
         gestureRouter.handleSwipeEnded = nil
         gestureRouter.zoomBy = zoomBy
+        gestureRouter.moveBackward = moveBackward
+        gestureRouter.moveForward = moveForward
     }
 
     private func fittedPageSize(for page: EpubImagePreviewPage, in containerSize: CGSize) -> CGSize {

@@ -129,11 +129,16 @@ final class ConversionViewModel: ObservableObject {
         NSWorkspace.shared.open(reportURL)
     }
 
-    func deleteTask(_ task: ConversionTask) {
-        guard canDelete(task) else { return }
-        coverImages[task.id] = nil
-        coverThumbnailCache.removeImage(for: task)
-        tasks.removeAll { $0.id == task.id }
+    func deleteTaskAndOutputFile(_ task: ConversionTask) throws {
+        guard canDelete(task), let storedTask = tasks.first(where: { $0.id == task.id }) else { return }
+
+        if let outputURL = storedTask.outputURL, FileManager.default.fileExists(atPath: outputURL.path) {
+            try FileManager.default.removeItem(at: outputURL)
+        }
+
+        coverImages[storedTask.id] = nil
+        coverThumbnailCache.removeImage(for: storedTask)
+        tasks.removeAll { $0.id == storedTask.id }
         persistTasks()
     }
 
