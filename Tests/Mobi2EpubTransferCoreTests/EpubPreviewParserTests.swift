@@ -61,10 +61,32 @@ struct EpubPreviewParserTests {
 
         let book = try await EpubPreviewParser().parse(epubURL: epubURL, extractionDirectory: extractionDirectory)
 
-        if case .web(let startURL) = book.mode {
-            #expect(startURL.lastPathComponent == "chapter.xhtml")
+        if case .web(let spineURLs) = book.mode {
+            #expect(spineURLs.map(\.lastPathComponent) == ["chapter.xhtml"])
         } else {
             Issue.record("Expected WebView preview")
+        }
+    }
+
+    @Test
+    func textEPUBIncludesEverySpineDocumentAndIsNotMistakenForComic() async throws {
+        let directory = try TemporaryDirectory()
+        let bookDirectory = directory.url.appendingPathComponent("illustrated-text-book")
+        try createIllustratedTextEPUBDirectory(at: bookDirectory)
+        let epubURL = try await zipEPUBDirectory(
+            bookDirectory,
+            outputURL: directory.url.appendingPathComponent("illustrated-text.epub")
+        )
+
+        let book = try await EpubPreviewParser().parse(
+            epubURL: epubURL,
+            extractionDirectory: directory.url.appendingPathComponent("preview")
+        )
+
+        if case .web(let spineURLs) = book.mode {
+            #expect(spineURLs.map(\.lastPathComponent) == ["cover.xhtml", "chapter-1.xhtml", "chapter-2.xhtml"])
+        } else {
+            Issue.record("Expected illustrated text EPUB to use WebView preview")
         }
     }
 
@@ -145,6 +167,49 @@ struct EpubPreviewParserTests {
                 contents: Data([0xFF, 0xD8, 0xFF, 0xD9])
             )
         }
+    }
+
+    private func createIllustratedTextEPUBDirectory(at directory: URL) throws {
+        let metaInfURL = directory.appendingPathComponent("META-INF", isDirectory: true)
+        let oebpsURL = directory.appendingPathComponent("OEBPS", isDirectory: true)
+        let pagesURL = oebpsURL.appendingPathComponent("pages", isDirectory: true)
+        let imagesURL = oebpsURL.appendingPathComponent("images", isDirectory: true)
+        try FileManager.default.createDirectory(at: metaInfURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: pagesURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true)
+
+        try "application/epub+zip".write(to: directory.appendingPathComponent("mimetype"), atomically: true, encoding: .utf8)
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+          <rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>
+        </container>
+        """.write(to: metaInfURL.appendingPathComponent("container.xml"), atomically: true, encoding: .utf8)
+
+        try """
+        <html xmlns="http://www.w3.org/1999/xhtml"><body><img src="../images/cover.jpg"/></body></html>
+        """.write(to: pagesURL.appendingPathComponent("cover.xhtml"), atomically: true, encoding: .utf8)
+        try """
+        <html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Chapter One</h1><img src="../images/figure.jpg"/><p>Body text.</p></body></html>
+        """.write(to: pagesURL.appendingPathComponent("chapter-1.xhtml"), atomically: true, encoding: .utf8)
+        try """
+        <html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Chapter Two</h1><p>More body text.</p></body></html>
+        """.write(to: pagesURL.appendingPathComponent("chapter-2.xhtml"), atomically: true, encoding: .utf8)
+        FileManager.default.createFile(atPath: imagesURL.appendingPathComponent("cover.jpg").path, contents: Data([0xFF, 0xD8, 0xFF, 0xD9]))
+        FileManager.default.createFile(atPath: imagesURL.appendingPathComponent("figure.jpg").path, contents: Data([0xFF, 0xD8, 0xFF, 0xD9]))
+
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+          <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Illustrated Text</dc:title></metadata>
+          <manifest>
+            <item id="cover" href="pages/cover.xhtml" media-type="application/xhtml+xml"/>
+            <item id="chapter-1" href="pages/chapter-1.xhtml" media-type="application/xhtml+xml"/>
+            <item id="chapter-2" href="pages/chapter-2.xhtml" media-type="application/xhtml+xml"/>
+          </manifest>
+          <spine><itemref idref="cover"/><itemref idref="chapter-1"/><itemref idref="chapter-2"/></spine>
+        </package>
+        """.write(to: oebpsURL.appendingPathComponent("content.opf"), atomically: true, encoding: .utf8)
     }
 
     private func comicOPF(pageCount: Int) -> String {

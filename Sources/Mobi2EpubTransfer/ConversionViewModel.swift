@@ -78,6 +78,28 @@ final class ConversionViewModel: ObservableObject {
         tasks.first { $0.id == id }
     }
 
+    @discardableResult
+    func addEpubToLibrary(_ url: URL) -> ConversionTask {
+        if let existingTask = tasks.first(where: {
+            sameFile($0.inputURL, url) || $0.outputURL.map { sameFile($0, url) } == true
+        }) {
+            return existingTask
+        }
+
+        let task = ConversionTask(
+            inputURL: url,
+            outputURL: url,
+            status: .succeeded,
+            progress: 1,
+            statusMessage: "EPUB ready to read",
+            completedAt: Date()
+        )
+        tasks.append(task)
+        persistTasks()
+        requestCoverImage(for: task)
+        return task
+    }
+
     func requeueTask(_ task: ConversionTask) {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         switch tasks[index].status {
@@ -159,6 +181,11 @@ final class ConversionViewModel: ObservableObject {
             return false
         }
         return !FileManager.default.fileExists(atPath: outputURL.path)
+    }
+
+    private func sameFile(_ firstURL: URL, _ secondURL: URL) -> Bool {
+        firstURL.standardizedFileURL.resolvingSymlinksInPath()
+            == secondURL.standardizedFileURL.resolvingSymlinksInPath()
     }
 
     private func startProcessingIfNeeded() {

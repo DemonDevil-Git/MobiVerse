@@ -16,7 +16,7 @@ public struct EpubImagePreviewPage: Identifiable, Equatable, Sendable {
 
 public enum EpubPreviewMode: Equatable, Sendable {
     case imagePages([EpubImagePreviewPage])
-    case web(startURL: URL)
+    case web(spineURLs: [URL])
 }
 
 public struct EpubPreviewBook: Identifiable, Equatable, Sendable {
@@ -92,21 +92,22 @@ public struct EpubPreviewParser {
             )
         }
 
-        if let firstXHTML = spineItems.first(where: { $0.mediaType.contains("xhtml") || $0.mediaType.contains("html") }) {
-            guard let startURL = EpubPathSecurity.resolve(
-                firstXHTML.href,
+        let spineURLs = spineItems.compactMap { item -> URL? in
+            guard item.mediaType.contains("xhtml") || item.mediaType.contains("html") else { return nil }
+            return EpubPathSecurity.resolve(
+                item.href,
                 relativeTo: packageDirectory,
                 containedIn: extractionDirectory
-            ) else {
-                throw EpubPreviewParserError.missingReadableContent
-            }
+            )
+        }
+        if !spineURLs.isEmpty {
             return EpubPreviewBook(
                 title: title,
                 epubURL: epubURL,
                 extractionDirectory: extractionDirectory,
                 contentRootDirectory: packageDirectory,
                 readingDirection: direction,
-                mode: .web(startURL: startURL)
+                mode: .web(spineURLs: spineURLs)
             )
         }
 
@@ -180,7 +181,7 @@ public struct EpubPreviewParser {
             if item.mediaType.hasPrefix("image/") {
                 imageURL = itemURL
             } else if item.mediaType.contains("xhtml") || item.mediaType.contains("html") {
-                imageURL = imageURLReferencedByXHTML(at: itemURL)
+                imageURL = imageURLReferencedByImageOnlyXHTML(at: itemURL)
             } else {
                 imageURL = nil
             }
@@ -200,19 +201,14 @@ public struct EpubPreviewParser {
         }
     }
 
-    private func imageURLReferencedByXHTML(at htmlURL: URL) -> URL? {
-        guard let html = try? String(contentsOf: htmlURL, encoding: .utf8) else {
+    private func imageURLReferencedByImageOnlyXHTML(at htmlURL: URL) -> URL? {
+        guard let data = try? Data(contentsOf: htmlURL) else {
             return nil
         }
-        let patterns = [
-            #"<img\b[^>]*(?:src|href)=["']([^"']+)["'][^>]*>"#,
-            #"<image\b[^>]*(?:xlink:href|href)=["']([^"']+)["'][^>]*>"#,
-            #"(?:src|href)=["']([^"']+\.(?:jpg|jpeg|png|gif|webp|svg))["']"#
-        ]
-        guard
-            let reference = patterns.lazy.compactMap({ firstCapture(pattern: $0, text: html) }).first,
-            !reference.hasPrefix("data:")
-        else {
+        let inspector = XHTMLImagePageInspector()
+        let parser = XMLParser(data: data)
+        parser.delegate = inspector
+        guard parser.parse(), let reference = inspector.imageOnlyReference else {
             return nil
         }
         return EpubPathSecurity.resolve(
@@ -289,4 +285,69 @@ private struct ManifestItem: Equatable {
     let href: String
     let mediaType: String
     let properties: String
+}
+
+private final class XHTMLImagePageInspector: NSObject, XMLParserDelegate {
+    private var ignoredElementDepth = 0
+    private var imageReferences: [String] = []
+    private var visibleText = ""
+
+    var imageOnlyReference: String? {
+        guard
+            imageReferences.count == 1,
+            visibleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            !imageReferences[0].hasPrefix("data:")
+        else {
+            return nil
+        }
+        return imageReferences[0]
+    }
+
+    func parser(
+        _ parser: XMLParser,
+        didStartElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?,
+        attributes attributeDict: [String: String] = [:]
+    ) {
+        if ignoredElementDepth > 0 {
+            ignoredElementDepth += 1
+            return
+        }
+
+        let name = localName(qName ?? elementName)
+        if ["head", "script", "style"].contains(name) {
+            ignoredElementDepth = 1
+            return
+        }
+
+        guard name == "img" || name == "image" else { return }
+        let reference = attributeDict.first { key, _ in
+            let attributeName = localName(key)
+            return attributeName == "src" || attributeName == "href"
+        }?.value
+        if let reference {
+            imageReferences.append(reference)
+        }
+    }
+
+    func parser(
+        _ parser: XMLParser,
+        didEndElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?
+    ) {
+        if ignoredElementDepth > 0 {
+            ignoredElementDepth -= 1
+        }
+    }
+
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        guard ignoredElementDepth == 0 else { return }
+        visibleText.append(string)
+    }
+
+    private func localName(_ name: String) -> String {
+        name.split(separator: ":").last.map(String.init)?.lowercased() ?? name.lowercased()
+    }
 }
