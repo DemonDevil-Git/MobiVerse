@@ -334,7 +334,7 @@ struct ContentView: View {
                     message: "Opening EPUB preview",
                     progress: nil
                 )
-                openEpubPreview(url)
+                openEpubPreview(url, addToLibrary: true)
                 continue
             }
 
@@ -420,7 +420,7 @@ struct ContentView: View {
         url.pathExtension.lowercased() == "epub"
     }
 
-    private func openEpubPreview(_ outputURL: URL) {
+    private func openEpubPreview(_ outputURL: URL, addToLibrary: Bool = false) {
         let extractionDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("MobiVersePreview", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -431,6 +431,9 @@ struct ContentView: View {
                     extractionDirectory: extractionDirectory
                 )
                 await MainActor.run {
+                    if addToLibrary {
+                        viewModel.addEpubToLibrary(outputURL)
+                    }
                     previewWindowController?.close()
                     let controller = EpubPreviewWindowController(book: book)
                     controller.onClose = {
@@ -1424,11 +1427,12 @@ private struct EpubPreviewView: View {
                     initialPageIndex: initialPageIndex,
                     savePageIndex: savePageIndex
                 )
-            case .web(let startURL):
-                EpubWebPreview(startURL: startURL, readAccessURL: book.contentRootDirectory)
-                    .onAppear {
-                        gestureRouter.resetHandlers()
-                    }
+            case .web(let spineURLs):
+                TextEpubPreview(
+                    spineURLs: spineURLs,
+                    readAccessURL: book.contentRootDirectory,
+                    gestureRouter: gestureRouter
+                )
             }
         }
     }
@@ -1437,8 +1441,8 @@ private struct EpubPreviewView: View {
         switch book.mode {
         case .imagePages(let pages):
             "\(pages.count) image pages"
-        case .web:
-            "Text EPUB preview"
+        case .web(let spineURLs):
+            "Text EPUB preview · \(spineURLs.count) sections"
         }
     }
 
@@ -1672,6 +1676,80 @@ private struct EpubImagePage: View {
         .task(id: page.id) {
             image = NSImage(contentsOf: page.imageURL)
         }
+    }
+}
+
+private struct TextEpubPreview: View {
+    let spineURLs: [URL]
+    let readAccessURL: URL
+    @ObservedObject var gestureRouter: PreviewGestureRouter
+    @State private var sectionIndex = 0
+
+    var body: some View {
+        VStack(spacing: 0) {
+            EpubWebPreview(
+                startURL: spineURLs[sectionIndex],
+                readAccessURL: readAccessURL
+            )
+
+            HStack(spacing: 12) {
+                Button(action: moveBackward) {
+                    Label("Previous section", systemImage: "chevron.left")
+                }
+                .disabled(sectionIndex == 0)
+
+                Slider(
+                    value: Binding(
+                        get: { Double(sectionIndex) },
+                        set: { sectionIndex = min(max(Int($0.rounded()), 0), spineURLs.count - 1) }
+                    ),
+                    in: 0...Double(max(spineURLs.count - 1, 0))
+                )
+                .disabled(spineURLs.count <= 1)
+
+                Text("\(sectionIndex + 1) / \(spineURLs.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 76)
+
+                Button(action: moveForward) {
+                    Label("Next section", systemImage: "chevron.right")
+                }
+                .disabled(sectionIndex >= spineURLs.count - 1)
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .padding(12)
+            .background(.bar)
+        }
+        .onAppear(perform: configureGestureRouter)
+        .onDisappear {
+            gestureRouter.resetHandlers()
+        }
+        .onChange(of: sectionIndex) { _, _ in
+            configureGestureRouter()
+        }
+    }
+
+    private func moveBackward() {
+        guard sectionIndex > 0 else { return }
+        sectionIndex -= 1
+    }
+
+    private func moveForward() {
+        guard sectionIndex < spineURLs.count - 1 else { return }
+        sectionIndex += 1
+    }
+
+    private func configureGestureRouter() {
+        gestureRouter.canMoveBackward = sectionIndex > 0
+        gestureRouter.canMoveForward = sectionIndex < spineURLs.count - 1
+        gestureRouter.handleSwipeChanged = nil
+        gestureRouter.handleSwipeEnded = nil
+        gestureRouter.zoomBy = nil
+        gestureRouter.moveBackward = moveBackward
+        gestureRouter.moveForward = moveForward
     }
 }
 
