@@ -56,7 +56,13 @@ public struct EpubCoverImageExtractor {
 
     private func imageURL(for item: ManifestItem?, packageDirectory: URL) -> URL? {
         guard let item else { return nil }
-        let itemURL = packageDirectory.appendingPathComponent(item.href).standardizedFileURL
+        guard let itemURL = EpubPathSecurity.resolve(
+            item.href,
+            relativeTo: packageDirectory,
+            containedIn: extractionRoot(for: packageDirectory)
+        ) else {
+            return nil
+        }
         let imageURL: URL?
 
         if item.mediaType.hasPrefix("image/") {
@@ -79,7 +85,14 @@ public struct EpubCoverImageExtractor {
             let containerXML = try? String(contentsOf: containerURL, encoding: .utf8),
             let fullPath = firstAttribute("full-path", inTagMatching: #"<rootfile\b[^>]*>"#, text: containerXML)
         {
-            return extractionDirectory.appendingPathComponent(fullPath).standardizedFileURL
+            guard let packageURL = EpubPathSecurity.resolve(
+                decodeXML(fullPath),
+                relativeTo: extractionDirectory,
+                containedIn: extractionDirectory
+            ) else {
+                throw EpubPreviewParserError.missingPackageDocument
+            }
+            return packageURL
         }
 
         let candidates = [
@@ -133,10 +146,26 @@ public struct EpubCoverImageExtractor {
         else {
             return nil
         }
-        return htmlURL
-            .deletingLastPathComponent()
-            .appendingPathComponent(decodeXML(reference))
-            .standardizedFileURL
+        return EpubPathSecurity.resolve(
+            decodeXML(reference),
+            relativeTo: htmlURL.deletingLastPathComponent(),
+            containedIn: extractionRoot(for: htmlURL)
+        )
+    }
+
+    private func extractionRoot(for url: URL) -> URL {
+        var current = url
+        while current.pathComponents.count > 1 {
+            if current.lastPathComponent == "META-INF" {
+                return current.deletingLastPathComponent()
+            }
+            let container = current.appendingPathComponent("META-INF/container.xml")
+            if fileManager.fileExists(atPath: container.path) {
+                return current
+            }
+            current.deleteLastPathComponent()
+        }
+        return url
     }
 
     private func tags(matching pattern: String, in text: String) -> [String] {

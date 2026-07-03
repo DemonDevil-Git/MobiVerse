@@ -1,0 +1,116 @@
+<Window x:Class="MobiVerse.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MobiVerse" Width="1220" Height="820" MinWidth="1080" MinHeight="720"
+        Background="{StaticResource Paper}" Foreground="{StaticResource Ink}"
+        AllowDrop="True" Drop="Window_Drop" DragOver="Window_DragOver">
+  <Window.CommandBindings>
+    <CommandBinding Command="ApplicationCommands.Open" Executed="Open_Executed"/>
+  </Window.CommandBindings>
+  <Window.InputBindings><KeyBinding Key="O" Modifiers="Control" Command="ApplicationCommands.Open"/></Window.InputBindings>
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition x:Name="SidebarColumn" Width="286"/>
+      <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+
+    <Border Grid.Column="0" Background="{StaticResource Sidebar}" BorderBrush="#18000000" BorderThickness="0,0,1,0">
+      <Grid Margin="22,20,22,18">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" HorizontalAlignment="Center">
+          <Grid Width="76" Height="76">
+            <Ellipse Fill="#142A33"/>
+            <TextBlock Text="▯" Foreground="#CF5633" FontSize="44" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Text="◆" Foreground="White" FontSize="9" Margin="49,13,0,0"/>
+          </Grid>
+          <TextBlock Text="MobiVerse" FontFamily="Georgia" FontWeight="SemiBold" FontSize="29" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+          <TextBlock Text="Make room for every story" Foreground="{StaticResource Terracotta}" FontWeight="SemiBold" FontSize="14" Margin="0,6,0,20"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1">
+          <Button Height="48" Background="{StaticResource Sage}" Foreground="White" BorderThickness="0" FontWeight="SemiBold" FontSize="15" Click="ChooseBooks_Click">＋  Choose books</Button>
+          <Button Height="42" Background="#0A142A33" BorderThickness="0" Foreground="{StaticResource Ink}" Click="RetryFailed_Click">↻  Retry failed</Button>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Margin="0,22,0,0">
+          <TextBlock Text="Your shelf" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+          <Grid Margin="0,5"><TextBlock Text="▥  Total conversions"/><TextBlock Text="{Binding TotalCount}" HorizontalAlignment="Right"/></Grid>
+          <Grid Margin="0,5"><TextBlock Text="●  Succeeded" Foreground="{StaticResource Sage}"/><TextBlock Text="{Binding SucceededCount}" HorizontalAlignment="Right"/></Grid>
+          <Grid Margin="0,5"><TextBlock Text="●  Failed" Foreground="{StaticResource Terracotta}"/><TextBlock Text="{Binding FailedCount}" HorizontalAlignment="Right"/></Grid>
+          <Grid Margin="0,5"><TextBlock Text="✣  In progress" Foreground="{StaticResource Cobalt}"/><TextBlock Text="{Binding ActiveCount}" HorizontalAlignment="Right"/></Grid>
+        </StackPanel>
+
+        <Image Grid.Row="3" Source="Resources/reading-still-life.png" Stretch="Uniform" VerticalAlignment="Bottom" MaxHeight="310" Margin="0,10,0,10"/>
+        <TextBlock Grid.Row="4" Text="{Binding ToolStatusText}" Foreground="{Binding ToolStatusBrush}" FontSize="12" FontWeight="SemiBold"/>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Column="1">
+      <Grid.RowDefinitions><RowDefinition Height="250"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+      <Grid Grid.Row="0" ClipToBounds="True">
+        <Image Source="Resources/hero-books-background.png" Stretch="UniformToFill"/>
+        <Button HorizontalAlignment="Left" VerticalAlignment="Top" Margin="14" Width="38" Height="38" Padding="0" Content="☰" Background="#EFFFFFFF" BorderThickness="0" Click="ToggleSidebar_Click" ToolTip="Toggle sidebar"/>
+        <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="14" Width="38" Height="38" Padding="0" Content="✓" Background="#EFFFFFFF" BorderThickness="0" Click="RefreshTools_Click" ToolTip="Refresh conversion tools"/>
+      </Grid>
+
+      <Grid Grid.Row="1" Background="{StaticResource Paper}">
+        <Grid.RowDefinitions><RowDefinition Height="70"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Grid Margin="28,12,28,8">
+          <TextBlock Text="Ready" FontFamily="Georgia" FontSize="25" FontWeight="SemiBold" VerticalAlignment="Center"/>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Background="#CCFFFFFF">
+            <Button Width="42" Content="▦" Click="GridView_Click" ToolTip="Grid view"/>
+            <Button Width="42" Content="☷" Click="ListView_Click" ToolTip="List view"/>
+          </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+          <TextBlock x:Name="EmptyShelf" Text="Your shelf is empty&#x0a;Add a book above to begin your MobiVerse library."
+                     TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16" Foreground="#88142A33"/>
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Items}" Margin="28,0,20,24">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Width="{Binding DataContext.CardWidth, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" MinHeight="158" Margin="0,0,14,14" Padding="14"
+                          Background="#CFFFFFFF" CornerRadius="16" BorderBrush="#10142A33" BorderThickness="1">
+                    <Grid>
+                      <Grid.RowDefinitions><RowDefinition Height="92"/><RowDefinition Height="42"/></Grid.RowDefinitions>
+                      <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="72"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Border Width="62" Height="86" CornerRadius="9" Background="{Binding CoverBrush}" VerticalAlignment="Top" ClipToBounds="True">
+                          <Grid>
+                            <Image Source="{Binding CoverImage}" Stretch="UniformToFill"/>
+                            <TextBlock Text="{Binding Extension}" Foreground="#CCFFFFFF" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,8"/>
+                          </Grid>
+                        </Border>
+                        <Grid Grid.Column="1" Margin="0,2,0,0">
+                          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                          <Grid><TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis"/><Border HorizontalAlignment="Right" Background="{Binding StatusBackground}" CornerRadius="11" Padding="8,3"><TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="11" FontWeight="SemiBold"/></Border></Grid>
+                          <TextBlock Grid.Row="1" Text="{Binding DetailText}" Foreground="#88142A33" FontSize="12" Margin="0,7,0,0" TextTrimming="CharacterEllipsis"/>
+                          <ProgressBar Grid.Row="3" Height="7" Value="{Binding ProgressPercent, Mode=OneWay}" Foreground="{Binding StatusBrush}" BorderThickness="0"/>
+                        </Grid>
+                      </Grid>
+                      <Grid Grid.Row="1" Margin="0,5,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition Width="45"/></Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="▤  Preview" Tag="{Binding}" Click="Preview_Click" IsEnabled="{Binding CanPreview}"/>
+                        <Button Grid.Column="1" Content="□  Reveal" Tag="{Binding}" Click="Reveal_Click" IsEnabled="{Binding CanReveal}"/>
+                        <Button Grid.Column="2" Content="▧  Report" Tag="{Binding}" Click="Report_Click" IsEnabled="{Binding CanReport}"/>
+                        <Button Grid.Column="3" Content="⌫" Foreground="{StaticResource Terracotta}" Tag="{Binding}" Click="Delete_Click" IsEnabled="{Binding CanDelete}"/>
+                      </Grid>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </Grid>
+    </Grid>
+
+    <Border x:Name="BusyOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#A0142A33">
+      <Border Width="410" Padding="28" Background="#FFF8F3E9" CornerRadius="18" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel><TextBlock x:Name="BusyTitle" FontFamily="Georgia" FontSize="23" FontWeight="SemiBold" TextAlignment="Center"/><TextBlock x:Name="BusyMessage" Margin="0,10" TextAlignment="Center"/><ProgressBar x:Name="BusyProgress" Height="8" Minimum="0" Maximum="100"/></StackPanel>
+      </Border>
+    </Border>
+  </Grid>
+</Window>

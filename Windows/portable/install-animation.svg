@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="190" height="166" viewBox="0 0 190 166">
+  <style>
+    .page{transform-box:fill-box;transform-origin:left center;animation:turn 1.52s ease-in-out infinite alternate}
+    .page.two{animation-delay:.38s}@keyframes turn{to{transform:scaleX(.08)}}
+    .dot{animation:pulse .7s ease-in-out infinite alternate}@keyframes pulse{from{opacity:.25}to{opacity:1}}
+  </style>
+  <circle cx="95" cy="81" r="77" fill="#2e5973" opacity=".07"/>
+  <path d="M34 42c24-8 44-4 61 10v85c-18-13-38-16-61-8z" fill="#f6f2e8" stroke="#142a33" stroke-width="3"/>
+  <path d="M156 42c-24-8-44-4-61 10v85c18-13 38-16 61-8z" fill="#fffdf8" stroke="#142a33" stroke-width="3"/>
+  <path class="page" d="M95 52c19-13 37-15 56-9v76c-20-4-39 1-56 14z" fill="#fff" stroke="#b84729" stroke-width="2.4"/>
+  <path class="page two" d="M95 52c17-10 33-12 50-7v69c-18-2-34 4-50 16z" fill="#fff" stroke="#2e5973" stroke-width="2.4"/>
+  <circle class="dot" cx="95" cy="155" r="4" fill="#b84729"/>
+</svg>

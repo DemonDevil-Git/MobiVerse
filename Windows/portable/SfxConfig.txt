@@ -1,0 +1,6 @@
+;!@Install@!UTF-8!
+Title="MobiVerse 2.2.0 Setup"
+Progress="yes"
+Directory=""
+RunProgram="powershell.exe -NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File Install-MobiVerse.ps1"
+;!@InstallEnd@!

@@ -4,6 +4,34 @@ import Testing
 
 struct EpubPreviewParserTests {
     @Test
+    func rejectsPathsOutsideEPUBRoot() throws {
+        let directory = try TemporaryDirectory()
+        let root = directory.url.appendingPathComponent("book", isDirectory: true)
+        let pages = root.appendingPathComponent("OEBPS/pages", isDirectory: true)
+        try FileManager.default.createDirectory(at: pages, withIntermediateDirectories: true)
+        let outside = directory.url.appendingPathComponent("private.xhtml")
+        try "secret".write(to: outside, atomically: true, encoding: .utf8)
+
+        #expect(EpubPathSecurity.resolve("../../../private.xhtml", relativeTo: pages, containedIn: root) == nil)
+        #expect(EpubPathSecurity.resolve("%2E%2E/%2E%2E/%2E%2E/private.xhtml", relativeTo: pages, containedIn: root) == nil)
+        #expect(EpubPathSecurity.resolve(outside.path, relativeTo: pages, containedIn: root) == nil)
+        #expect(EpubPathSecurity.resolve("https://example.com/book.xhtml", relativeTo: pages, containedIn: root) == nil)
+    }
+
+    @Test
+    func acceptsNormalizedPathsInsideEPUBRoot() throws {
+        let directory = try TemporaryDirectory()
+        let root = directory.url.appendingPathComponent("book", isDirectory: true)
+        let pages = root.appendingPathComponent("OEBPS/pages", isDirectory: true)
+        let images = root.appendingPathComponent("OEBPS/images", isDirectory: true)
+        try FileManager.default.createDirectory(at: pages, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: images, withIntermediateDirectories: true)
+
+        let result = EpubPathSecurity.resolve("../images/cover%20image.jpg#page", relativeTo: pages, containedIn: root)
+        #expect(result == images.appendingPathComponent("cover image.jpg"))
+    }
+
+    @Test
     func parsesImagePageEPUBAsComicPreview() async throws {
         let directory = try TemporaryDirectory()
         let bookDirectory = directory.url.appendingPathComponent("comic")

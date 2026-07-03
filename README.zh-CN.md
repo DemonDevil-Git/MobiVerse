@@ -1,6 +1,6 @@
 # MobiVerse
 
-**MobiVerse 是一款原生 macOS 阅读与转换工具：可以直接打开 EPUB，也可以把 Kindle 电子书、漫画压缩包和 PDF 漫画转换成适合 Apple Books 与现代 EPUB 阅读器使用的精致 EPUB。**
+**MobiVerse 是一款本地优先的 macOS 与 Windows 阅读转换工具：可以直接打开 EPUB，也可以把 Kindle 电子书、漫画压缩包和 PDF 漫画转换成适合 Apple Books 与现代 EPUB 阅读器使用的精致 EPUB。**
 
 > English: [README.md](README.md)
 
@@ -9,7 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.1.0.dmg"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20macOS%20%E7%89%88-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse macOS 版"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.0.dmg"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20macOS%20%E7%89%88-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse macOS 版"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20Windows%20%E7%89%88-MobiVerse-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="下载 MobiVerse Windows 版"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC" alt="最新版本"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
 </p>
@@ -74,10 +75,16 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 
 ## 安装
 
-1. 下载最新 DMG：[MobiVerse-2.1.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.1.0.dmg)。
-2. 打开 `MobiVerse-2.1.0.dmg`。
+### macOS
+
+1. 下载最新 DMG：[MobiVerse-2.2.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.0.dmg)。
+2. 打开 `MobiVerse-2.2.0.dmg`。
 3. 将 `MobiVerse.app` 拖入 `Applications`。
 4. 启动 MobiVerse，把支持的文件拖入窗口，或在 Finder 中选择用 MobiVerse 打开。
+
+### Windows 11 ARM64
+
+下载并运行 [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe)。安装包包含通过 Windows 11 ARM64 仿真运行的 x64 MobiVerse 与 Calibre 组件，以及原生 ARM64 WebView2 运行时。
 
 转换后的 EPUB 会保存到原文件旁边，并避免覆盖已有 EPUB。
 
@@ -96,7 +103,15 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 
 文本 EPUB 会回退到简单的 WebView 预览。
 
+EPUB 内部文件引用会被限制在书籍解包目录中。文本预览会禁用书籍自带 JavaScript、阻止远程网络资源、限制页面导航，并使用非持久化 WebView 存储。
+
 PDF 转换会把每一页按原始视觉效果保存为固定布局图像，因此 PDF 中可选择的文字、链接、批注和表单不会保留到 EPUB 中。
+
+## 2.2 新增内容
+
+- 新增 Windows 11 ARM64 桌面版本和 Windows CI。
+- 阻止 EPUB 包描述、页面和图片引用中的路径穿越。
+- 加固文本 EPUB 预览：禁用 JavaScript、阻止远程资源、限制导航并使用非持久化存储。
 
 ## 2.1 新增内容
 
@@ -187,7 +202,7 @@ scripts/package-dmg.sh
 生成的安装镜像位于：
 
 ```text
-.build/MobiVerse-2.1.0.dmg
+.build/MobiVerse-2.2.0.dmg
 ```
 
 默认开发构建使用 ad-hoc 签名，适合本地测试；但从互联网下载后会被 macOS Gatekeeper 拦截。

@@ -1681,14 +1681,82 @@ private struct EpubWebPreview: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = false
         let view = WKWebView(frame: .zero, configuration: configuration)
+        view.navigationDelegate = context.coordinator
         view.setValue(false, forKey: "drawsBackground")
+        context.coordinator.prepare(view)
         return view
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {
-        guard view.url != startURL else { return }
-        view.loadFileURL(startURL, allowingReadAccessTo: readAccessURL)
+        context.coordinator.load(startURL, readAccessURL: readAccessURL)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    final class Coordinator: NSObject, WKNavigationDelegate {
+        private weak var webView: WKWebView?
+        private var isNetworkBlockingReady = false
+        private var pendingLoad: (startURL: URL, readAccessURL: URL)?
+        private var allowedRootURL: URL?
+
+        func prepare(_ webView: WKWebView) {
+            self.webView = webView
+            let rules = #"[{"trigger":{"url-filter":"^https?://.*"},"action":{"type":"block"}}]"#
+            WKContentRuleListStore.default().compileContentRuleList(
+                forIdentifier: "MobiVerseBlockEPUBNetworkAccess",
+                encodedContentRuleList: rules
+            ) { [weak self, weak webView] ruleList, _ in
+                guard let self, let webView, let ruleList else { return }
+                webView.configuration.userContentController.add(ruleList)
+                isNetworkBlockingReady = true
+                performPendingLoadIfPossible()
+            }
+        }
+
+        func load(_ startURL: URL, readAccessURL: URL) {
+            guard EpubPathSecurity.contains(startURL, in: readAccessURL) else {
+                webView?.stopLoading()
+                return
+            }
+            allowedRootURL = readAccessURL
+            pendingLoad = (startURL, readAccessURL)
+            performPendingLoadIfPossible()
+        }
+
+        private func performPendingLoadIfPossible() {
+            guard
+                isNetworkBlockingReady,
+                let webView,
+                let pendingLoad,
+                webView.url != pendingLoad.startURL
+            else {
+                return
+            }
+            self.pendingLoad = nil
+            webView.loadFileURL(pendingLoad.startURL, allowingReadAccessTo: pendingLoad.readAccessURL)
+        }
+
+        @MainActor
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
+        ) {
+            guard
+                let targetURL = navigationAction.request.url,
+                let allowedRootURL,
+                EpubPathSecurity.contains(targetURL, in: allowedRootURL)
+            else {
+                decisionHandler(.cancel)
+                return
+            }
+            decisionHandler(.allow)
+        }
     }
 }
 

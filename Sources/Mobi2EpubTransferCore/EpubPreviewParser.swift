@@ -93,7 +93,13 @@ public struct EpubPreviewParser {
         }
 
         if let firstXHTML = spineItems.first(where: { $0.mediaType.contains("xhtml") || $0.mediaType.contains("html") }) {
-            let startURL = packageDirectory.appendingPathComponent(firstXHTML.href).standardizedFileURL
+            guard let startURL = EpubPathSecurity.resolve(
+                firstXHTML.href,
+                relativeTo: packageDirectory,
+                containedIn: extractionDirectory
+            ) else {
+                throw EpubPreviewParserError.missingReadableContent
+            }
             return EpubPreviewBook(
                 title: title,
                 epubURL: epubURL,
@@ -113,7 +119,14 @@ public struct EpubPreviewParser {
             let containerXML = try? String(contentsOf: containerURL, encoding: .utf8),
             let fullPath = firstAttribute("full-path", inTagMatching: #"<rootfile\b[^>]*>"#, text: containerXML)
         {
-            return extractionDirectory.appendingPathComponent(fullPath).standardizedFileURL
+            guard let packageURL = EpubPathSecurity.resolve(
+                decodeXML(fullPath),
+                relativeTo: extractionDirectory,
+                containedIn: extractionDirectory
+            ) else {
+                throw EpubPreviewParserError.missingPackageDocument
+            }
+            return packageURL
         }
 
         let candidates = [
@@ -156,7 +169,13 @@ public struct EpubPreviewParser {
 
     private func imagePreviewPages(from spineItems: [ManifestItem], packageDirectory: URL) -> [EpubImagePreviewPage] {
         spineItems.enumerated().compactMap { index, item in
-            let itemURL = packageDirectory.appendingPathComponent(item.href).standardizedFileURL
+            guard let itemURL = EpubPathSecurity.resolve(
+                item.href,
+                relativeTo: packageDirectory,
+                containedIn: packageDirectory
+            ) else {
+                return nil
+            }
             let imageURL: URL?
             if item.mediaType.hasPrefix("image/") {
                 imageURL = itemURL
@@ -196,10 +215,22 @@ public struct EpubPreviewParser {
         else {
             return nil
         }
-        return htmlURL
-            .deletingLastPathComponent()
-            .appendingPathComponent(decodeXML(reference))
-            .standardizedFileURL
+        return EpubPathSecurity.resolve(
+            decodeXML(reference),
+            relativeTo: htmlURL.deletingLastPathComponent(),
+            containedIn: packageRoot(for: htmlURL)
+        )
+    }
+
+    private func packageRoot(for url: URL) -> URL {
+        var current = url.deletingLastPathComponent()
+        while current.pathComponents.count > 1 {
+            if fileManager.fileExists(atPath: current.appendingPathComponent("content.opf").path) {
+                return current
+            }
+            current.deleteLastPathComponent()
+        }
+        return url.deletingLastPathComponent()
     }
 
     private func imageDimensions(at url: URL) -> (width: Int, height: Int)? {

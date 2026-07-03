@@ -1,0 +1,4 @@
+Bundled component: calibre 9.10.0 (Windows x64 Portable)
+Project: https://calibre-ebook.com/
+Corresponding source: https://github.com/kovidgoyal/calibre/releases/tag/v9.10.0
+License: GNU General Public License version 3

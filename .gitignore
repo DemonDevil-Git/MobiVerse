@@ -5,3 +5,7 @@ DerivedData/
 *.xcuserstate
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
+Windows/**/bin/
+Windows/**/obj/
+Windows/artifacts/
+Windows/**/TestResults/

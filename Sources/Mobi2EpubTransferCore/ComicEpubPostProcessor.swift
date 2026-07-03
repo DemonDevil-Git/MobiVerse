@@ -737,7 +737,13 @@ public struct ComicEpubPostProcessor {
             let match = regex.firstMatch(in: containerXML, range: NSRange(containerXML.startIndex..<containerXML.endIndex, in: containerXML)),
             let range = Range(match.range(at: 1), in: containerXML)
         {
-            return directory.appendingPathComponent(String(containerXML[range]))
+            if let packageURL = EpubPathSecurity.resolve(
+                String(containerXML[range]),
+                relativeTo: directory,
+                containedIn: directory
+            ) {
+                return packageURL
+            }
         }
 
         let candidates = [
@@ -792,18 +798,19 @@ public struct ComicEpubPostProcessor {
 
     private func resolvedURL(for imageReference: String, from htmlURL: URL, rootDirectory: URL) -> URL? {
         let decodedReference = imageReference.removingPercentEncoding ?? imageReference
-        let directURL = htmlURL
-            .deletingLastPathComponent()
-            .appendingPathComponent(decodedReference)
-            .standardizedFileURL
-        if fileManager.fileExists(atPath: directURL.path) {
+        if let directURL = EpubPathSecurity.resolve(
+            decodedReference,
+            relativeTo: htmlURL.deletingLastPathComponent(),
+            containedIn: rootDirectory
+        ), fileManager.fileExists(atPath: directURL.path) {
             return directURL
         }
 
-        let rootRelativeURL = rootDirectory
-            .appendingPathComponent(decodedReference)
-            .standardizedFileURL
-        if fileManager.fileExists(atPath: rootRelativeURL.path) {
+        if let rootRelativeURL = EpubPathSecurity.resolve(
+            decodedReference,
+            relativeTo: rootDirectory,
+            containedIn: rootDirectory
+        ), fileManager.fileExists(atPath: rootRelativeURL.path) {
             return rootRelativeURL
         }
 
