@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.0.dmg"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20macOS%20%E7%89%88-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse macOS 版"></a>
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20Windows%20%E7%89%88-MobiVerse-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="下载 MobiVerse Windows 版"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.1.dmg"><img src="https://img.shields.io/badge/macOS%202.2.1-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse 2.2.1 macOS 版"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.2.0-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="下载 MobiVerse 2.2.0 Windows 版"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC" alt="最新版本"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
 </p>
@@ -46,7 +46,10 @@
   MobiVerse 会写入封面元数据、固定布局显示选项和自包含图像页面，让转换后的 EPUB 在 Apple Books 中更稳定。
 
 - **内置 EPUB 预览**  
-  转换完成后可以直接在 App 内预览 EPUB。图像页支持原生水平翻页、放大缩小、适配窗口和全屏预览。
+  图像页和文本 EPUB 都能直接在 App 内打开。漫画页面支持原生水平翻页与缩放；文本书籍可加载完整书脊，并提供上一节、下一节和章节进度滑块。
+
+- **直接导入 EPUB 书库**
+  直接打开的 EPUB 会自动加入书库并提取封面；再次打开同一文件会更新已有项目，不会产生重复记录。
 
 - **真实封面缩略图**  
   转换完成的图书会显示 EPUB 封面，而不是通用文件图标。封面会缓存在本地，重新打开 App 时书架能更快恢复。
@@ -77,14 +80,16 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 
 ### macOS
 
-1. 下载最新 DMG：[MobiVerse-2.2.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.0.dmg)。
-2. 打开 `MobiVerse-2.2.0.dmg`。
-3. 将 `MobiVerse.app` 拖入 `Applications`。
+1. 下载最新 DMG：[MobiVerse-2.2.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.1.dmg)。
+2. 打开 `MobiVerse-2.2.1.dmg`。
+3. 将 `MobiVerse.app` 拖入 `Applications`；系统提示时替换旧版本。
 4. 启动 MobiVerse，把支持的文件拖入窗口，或在 Finder 中选择用 MobiVerse 打开。
+
+当前 macOS 版本为 MobiVerse 2.2.1 (10)，仅支持 Apple Silicon（`arm64`）。
 
 ### Windows 11 ARM64
 
-下载并运行 [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe)。安装包包含通过 Windows 11 ARM64 仿真运行的 x64 MobiVerse 与 Calibre 组件，以及原生 ARM64 WebView2 运行时。
+当前 Windows 版本仍为 2.2.0。下载并运行 [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe)。安装包包含通过 Windows 11 ARM64 仿真运行的 x64 MobiVerse 与 Calibre 组件，以及原生 ARM64 WebView2 运行时。MobiVerse 2.2.1 目前仅更新 macOS 版本。
 
 转换后的 EPUB 会保存到原文件旁边，并避免覆盖已有 EPUB。
 
@@ -94,20 +99,29 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 
 ## 预览能力
 
-内置预览主要面向漫画和图像页 EPUB：
+漫画和图像页 EPUB 支持：
 
 - 原生水平翻页
 - 全屏预览
 - 放大、缩小和适配窗口
 - 全屏或窗口尺寸变化后自动重新居中当前页
 
-文本 EPUB 会回退到简单的 WebView 预览。
+文本 EPUB 和带插图的文本 EPUB 会加载书脊中的全部可读文档，不再停留在封面。可以通过上一节 / 下一节按钮、水平滑动或章节进度滑块浏览全书。包含正文的插图章节会保持文本阅读模式，不再被误判为纯图片漫画页面。
+
+直接打开 EPUB 时，文件还会加入本地书库、通过现有封面流程提取封面，并在重复打开同一文件时避免生成重复记录。
 
 EPUB 内部文件引用会被限制在书籍解包目录中。文本预览会禁用书籍自带 JavaScript、阻止远程网络资源、限制页面导航，并使用非持久化 WebView 存储。
 
 PDF 转换会把每一页按原始视觉效果保存为固定布局图像，因此 PDF 中可选择的文字、链接、批注和表单不会保留到 EPUB 中。
 
-## 2.2 新增内容
+## 2.2.1 新增内容
+
+- 修复文本 EPUB 预览只显示封面的问题，现在会加载完整书脊。
+- 新增上一节 / 下一节按钮、水平章节导航和章节进度滑块。
+- 避免把包含正文的插图章节误判为纯图片漫画页面。
+- 直接打开的 EPUB 会加入书库、提取封面，并避免重复记录。
+
+## 2.2.0 新增内容
 
 - 新增 Windows 11 ARM64 桌面版本和 Windows CI。
 - 阻止 EPUB 包描述、页面和图片引用中的路径穿越。
@@ -158,11 +172,11 @@ MobiVerse 会把 EPUB 写到原始文件旁边，并避免覆盖已有文件。
 
 ### 我的书会上传到服务器吗？
 
-不会。转换在你的 Mac 本地完成。
+不会。转换完全在你的电脑本地完成。
 
 ## 隐私
 
-MobiVerse 在你的 Mac 本地运行。这个 App 不会把你的书上传到服务器。
+MobiVerse 在你的电脑本地运行，不会把你的书上传到服务器。
 
 ## 开发
 
@@ -202,7 +216,7 @@ scripts/package-dmg.sh
 生成的安装镜像位于：
 
 ```text
-.build/MobiVerse-2.2.0.dmg
+.build/MobiVerse-2.2.1.dmg
 ```
 
 默认开发构建使用 ad-hoc 签名，适合本地测试；但从互联网下载后会被 macOS Gatekeeper 拦截。

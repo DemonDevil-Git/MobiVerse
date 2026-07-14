@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.0.dmg"><img src="https://img.shields.io/badge/Download%20for%20macOS-MobiVerse-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse for macOS"></a>
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Download%20for%20Windows-MobiVerse-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="Download MobiVerse for Windows"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.1.dmg"><img src="https://img.shields.io/badge/macOS%202.2.1-Download-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse 2.2.1 for macOS"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.2.0-Download-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="Download MobiVerse 2.2.0 for Windows"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=Latest%20release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
 </p>
@@ -46,7 +46,10 @@
   MobiVerse writes cover metadata, fixed-layout display options, and self-contained image pages to avoid stretched or black pages.
 
 - **Built-in EPUB preview**  
-  Open converted EPUBs directly in the app, flip through image pages with native horizontal paging, zoom in, and use fullscreen preview.
+  Open image-page and text EPUBs directly in the app. Comic pages support native horizontal paging and zoom, while text books provide complete spine navigation with previous/next controls and a section slider.
+
+- **Direct EPUB library import**
+  EPUBs opened directly are added to the library with extracted cover artwork. Reopening the same file updates the existing item instead of creating a duplicate.
 
 - **Real cover thumbnails**  
   Completed books show the converted EPUB cover in the shelf instead of generic file tiles. Covers are cached locally so reopened sessions restore the shelf quickly.
@@ -77,14 +80,16 @@ MobiVerse does not remove DRM. Protected or unreadable files are reported clearl
 
 ### macOS
 
-1. Download the latest DMG: [MobiVerse-2.2.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.0.dmg).
-2. Open `MobiVerse-2.2.0.dmg`.
-3. Drag `MobiVerse.app` into `Applications`.
+1. Download the latest DMG: [MobiVerse-2.2.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.1.dmg).
+2. Open `MobiVerse-2.2.1.dmg`.
+3. Drag `MobiVerse.app` into `Applications`, replacing the previous version when prompted.
 4. Launch MobiVerse and drop supported files into the window, or open supported files with MobiVerse from Finder.
+
+The current macOS release is MobiVerse 2.2.1 (10) for Apple Silicon (`arm64`) only.
 
 ### Windows 11 ARM64
 
-Download and run [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe). The package includes the x64 MobiVerse and Calibre components used through Windows 11 ARM64 emulation, plus the native ARM64 WebView2 runtime.
+The current Windows release remains 2.2.0. Download and run [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe). The package includes the x64 MobiVerse and Calibre components used through Windows 11 ARM64 emulation, plus the native ARM64 WebView2 runtime. MobiVerse 2.2.1 is currently a macOS-only update.
 
 Converted EPUB files are written next to the original source file without overwriting existing EPUBs.
 
@@ -94,20 +99,29 @@ If macOS shows an "Apple could not verify MobiVerse" warning, that DMG was built
 
 ## Preview
 
-The built-in preview focuses on comic/image-page EPUBs:
+Comic and image-page EPUBs support:
 
 - native horizontal page swiping
 - fullscreen preview
 - zoom in, zoom out, and fit controls
 - current-page recentering after fullscreen/window size changes
 
-Text EPUBs fall back to a simple WebView preview.
+Text and illustrated-text EPUBs load every readable document in the book spine instead of stopping at the cover. Use the previous/next controls, horizontal swipes, or the section progress slider to move through the book. Illustrated chapters containing real text remain in text-reading mode instead of being mistaken for image-only comic pages.
 
-EPUB file references are confined to the extracted book directory. Text previews disable book-provided JavaScript, block remote web resources, and use non-persistent WebView storage.
+Opening an EPUB directly also adds it to the local library, extracts its cover through the existing cover pipeline, and avoids duplicate records when the same file is reopened.
+
+EPUB file references are confined to the extracted book directory. Text previews disable book-provided JavaScript, block remote web resources, restrict navigation, and use non-persistent WebView storage.
 
 PDF conversion preserves each page visually as a fixed-layout image. Selectable PDF text, links, annotations, and forms are not retained in the EPUB output.
 
-## What's New in 2.2
+## What's New in 2.2.1
+
+- Fixed text EPUB preview so the complete spine loads instead of stopping at the cover.
+- Added previous/next section controls, horizontal section navigation, and a section progress slider.
+- Prevented illustrated text chapters from being mistaken for image-only comic pages.
+- Added directly opened EPUBs to the library with cover extraction and duplicate prevention.
+
+## What's New in 2.2.0
 
 - Added the Windows 11 ARM64 desktop release and Windows CI.
 - Blocked EPUB path traversal through package, page, and image references.
@@ -158,11 +172,11 @@ MobiVerse writes EPUBs next to the original source file and avoids overwriting e
 
 ### Is my book uploaded anywhere?
 
-No. Conversion runs locally on your Mac.
+No. Conversion runs locally on your computer.
 
 ## Privacy
 
-MobiVerse runs locally on your Mac. Your books are not uploaded to a server by this app.
+MobiVerse runs locally on your computer. Your books are not uploaded to a server by this app.
 
 ## Development
 
@@ -202,7 +216,7 @@ scripts/package-dmg.sh
 The generated installer image is written to:
 
 ```text
-.build/MobiVerse-2.2.0.dmg
+.build/MobiVerse-2.2.1.dmg
 ```
 
 Development builds use ad-hoc signing by default. They are suitable for local testing, but macOS Gatekeeper will block them after download from the internet.
