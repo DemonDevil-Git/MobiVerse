@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.1.dmg"><img src="https://img.shields.io/badge/macOS%202.2.1-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse 2.2.1 macOS 版"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.0.dmg"><img src="https://img.shields.io/badge/macOS%202.3.0-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse 2.3.0 macOS 版"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.2.0-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="下载 MobiVerse 2.2.0 Windows 版"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC" alt="最新版本"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
@@ -26,6 +26,12 @@
 </p>
 
 ## 为什么选择 MobiVerse
+
+- **内置浏览器，便于访问合法阅读来源**
+  无需离开 MobiVerse 即可在“书架 / 浏览”之间切换。浏览区支持标签页、持久会话、地址栏收藏和下载托盘；首页不预装或推荐任何电子书网站。
+
+- **完全本地的智能图书分析**
+  浏览器下载、文件选择和拖放统一进入“分析 → 确认 → 转换”流程。MobiVerse 会在本地识别文本书、漫画和不确定文件，说明置信度与依据，并允许用户覆盖结果及漫画阅读方向。
 
 - **2.0 全新书架式界面**  
   MobiVerse 2.0 不再是普通工具窗口，而是一个更安静、更有阅读氛围的 macOS 书架工作区：包含拖拽阅读桌、左侧转换统计、精致的图书卡片和暖色视觉风格。
@@ -45,8 +51,11 @@
 - **更适合 Apple Books**  
   MobiVerse 会写入封面元数据、固定布局显示选项和自包含图像页面，让转换后的 EPUB 在 Apple Books 中更稳定。
 
-- **内置 EPUB 预览**  
-  图像页和文本 EPUB 都能直接在 App 内打开。漫画页面支持原生水平翻页与缩放；文本书籍可加载完整书脊，并提供上一节、下一节和章节进度滑块。
+- **精致的分页 EPUB 阅读器**
+  可重排文本会自动适配阅读器窗口，以水平翻页取代上下滚动；漫画会逐页适配窗口并支持水平翻页与缩放。两种模式关闭后重新打开时都会精确恢复阅读位置。
+
+- **完整适配系统外观**
+  书架、浏览器、设置、导入确认和阅读器都会适配 macOS 深浅色模式；也可以通过持久化外观菜单主动选择“跟随系统 / 浅色 / 深色”。
 
 - **直接导入 EPUB 书库**
   直接打开的 EPUB 会自动加入书库并提取封面；再次打开同一文件会更新已有项目，不会产生重复记录。
@@ -80,20 +89,20 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 
 ### macOS
 
-1. 下载最新 DMG：[MobiVerse-2.2.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.1.dmg)。
-2. 打开 `MobiVerse-2.2.1.dmg`。
+1. 下载最新 DMG：[MobiVerse-2.3.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.0.dmg)。
+2. 打开 `MobiVerse-2.3.0.dmg`。
 3. 将 `MobiVerse.app` 拖入 `Applications`；系统提示时替换旧版本。
 4. 启动 MobiVerse，把支持的文件拖入窗口，或在 Finder 中选择用 MobiVerse 打开。
 
-当前 macOS 版本为 MobiVerse 2.2.1 (10)，仅支持 Apple Silicon（`arm64`）。
+当前 macOS 版本为 MobiVerse 2.3.0 (11)，仅支持 Apple Silicon（`arm64`）。
 
 ### Windows 11 ARM64
 
-当前 Windows 版本仍为 2.2.0。下载并运行 [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe)。安装包包含通过 Windows 11 ARM64 仿真运行的 x64 MobiVerse 与 Calibre 组件，以及原生 ARM64 WebView2 运行时。MobiVerse 2.2.1 目前仅更新 macOS 版本。
+当前 Windows 版本仍为 2.2.0。下载并运行 [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe)。安装包包含通过 Windows 11 ARM64 仿真运行的 x64 MobiVerse 与 Calibre 组件，以及原生 ARM64 WebView2 运行时。MobiVerse 2.3.0 目前仅更新 macOS 版本。
 
 转换后的 EPUB 会保存到原文件旁边，并避免覆盖已有 EPUB。
 
-发布版 App 内置 Calibre，因此普通读者不需要额外安装 Calibre。
+发布版 App 内置 Calibre、EPUBCheck 与运行 EPUBCheck 所需的 Java，因此普通读者不需要额外安装转换和验证依赖。
 
 如果 macOS 提示“Apple 无法验证 MobiVerse”，说明当前 DMG 没有经过 Apple Developer ID 公证。正式公开分发版本后续应使用 Developer ID 签名、公证并 stapled。
 
@@ -113,6 +122,20 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 EPUB 内部文件引用会被限制在书籍解包目录中。文本预览会禁用书籍自带 JavaScript、阻止远程网络资源、限制页面导航，并使用非持久化 WebView 存储。
 
 PDF 转换会把每一页按原始视觉效果保存为固定布局图像，因此 PDF 中可选择的文字、链接、批注和表单不会保留到 EPUB 中。
+
+## 2.3.0 新增内容
+
+- 新增 macOS“书架 / 浏览”双工作区。独立 WKWebView 浏览器支持持久登录、标签页、导航、主页、自定义收藏，以及地址栏五角星收藏/取消收藏与下方收藏标签联动。
+- 新增下载托盘，支持进度、暂停、取消、重试、重名处理、自定义下载位置和 Finder 定位。文件先暂存，再按签名、MIME、扩展名和真实内容校验；HTML 错误页、可执行文件及伪装格式不会进入转换队列。
+- 新增浏览隐私设置，可清除 Cookie、缓存和浏览历史，但不会删除下载图书、转换历史或收藏。EPUB 预览继续使用完全独立的安全 WebView，禁用脚本、联网与持久存储。
+- 浏览器下载、文件选择和拖放现已统一进入本地“分析 → 确认 → 转换”流程。批量确认面板会显示文本书/漫画/不确定、置信度与依据，并允许覆盖结果及选择漫画从左到右或从右到左阅读。
+- 新增明确的文本可重排与漫画固定布局转换路线。原有漫画 CSS、图片归一化、PDFKit 固定布局、日漫元数据、EPUBCheck 报告、封面缓存、失败重试、预览、Finder 和历史功能保持不变。
+- EPUB 输入不再无意义地重新打包，只进行安全解析、类型识别、封面提取并直接加入书架。
+- AZW/MOBI 文本书现在强制输出 EPUB 3。转换会保留日语 `<ruby>/<rt>` 注音，并在 EPUBCheck 前自动修复非法 XML ID、失效样式/资源引用和 NCX 目录顺序。
+- 文本 EPUB 预览升级为优雅的窗口自适应分页阅读器，支持水平翻页、字体排版、阅读主题，以及精确恢复章节和页码；漫画 EPUB 也会逐页适配窗口、水平翻页并恢复上次页码。
+- 新增全局自适应深浅色配色和持久化“跟随系统 / 浅色 / 深色”切换。深色模式左下角静物插图使用高分辨率抗锯齿资源，并与浅色模式保持相同视觉尺寸。
+- 正式验证包现在始终内置 Calibre、EPUBCheck 和 EPUBCheck 所需 Java 运行时。
+- 保持旧版历史 JSON 兼容；已有任务仍按原漫画配置恢复，不会被重新处理。
 
 ## 2.2.1 新增内容
 
@@ -148,9 +171,8 @@ PDF 转换会把每一页按原始视觉效果保存为固定布局图像，因�
 ## 路线图
 
 - 签名并公证的公开 DMG。
-- 可选内置 EPUBCheck，用于更完整的校验报告。
-- 更明确的漫画阅读方向设置，包括日漫和欧美漫画。
 - 更完善的元数据编辑，包括标题、作者、封面和系列信息。
+- 使用同一套跨平台模型、基于 WebView2 的 Windows 浏览工作区。
 
 ## 常见问题
 
@@ -185,7 +207,7 @@ MobiVerse 在你的电脑本地运行，不会把你的书上传到服务器。
 - macOS 14 或更高版本
 - Swift 6 / Xcode 26 或更高版本
 - 构建发布包的机器需要本地 Calibre App，用于复制进可分发 App 包。默认路径为 `/Applications/calibre.app`；可通过 `CALIBRE_APP=/path/to/calibre.app` 覆盖。
-- 可选：`PATH` 中存在 `epubcheck`，或提供 `EPUBCHECK_JAR=/path/to/epubcheck.jar`
+- EPUBCheck 与 OpenJDK，所有验证包和发布包都必须内置。脚本会探测常见 Homebrew 路径，也可通过 `EPUBCHECK_JAR=/path/to/epubcheck.jar` 和 `EPUBCHECK_JAVA_HOME=/path/to/java/home` 指定。
 
 ### 从源码运行
 
@@ -216,7 +238,7 @@ scripts/package-dmg.sh
 生成的安装镜像位于：
 
 ```text
-.build/MobiVerse-2.2.1.dmg
+.build/MobiVerse-2.3.0.dmg
 ```
 
 默认开发构建使用 ad-hoc 签名，适合本地测试；但从互联网下载后会被 macOS Gatekeeper 拦截。
@@ -246,11 +268,13 @@ scripts/package-dmg.sh
 
 脚本会使用 hardened runtime 和 timestamp 签名 App，签名 DMG，提交 Apple 公证，staple 公证票据，并校验最终 DMG。
 
-### 内置 EPUBCheck
+### EPUBCheck 要求
 
 ```sh
 EPUBCHECK_JAR=/path/to/epubcheck.jar scripts/package-dmg.sh
 ```
+
+两个脚本都会内置 Calibre、EPUBCheck 及其 Java 运行时；缺少任何依赖时都会直接失败，不再生成依赖不完整或无法运行的验证包。
 
 ## 测试
 

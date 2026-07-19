@@ -29,6 +29,24 @@ struct ConverterServiceTests {
         #expect(arguments.first?.hasSuffix(".cbz") == true)
         #expect(arguments.dropFirst().first == outputURL.path)
     }
+
+    @Test
+    func textConversionDoesNotInjectComicLayoutArguments() async throws {
+        let directory = try TemporaryDirectory()
+        let inputURL = directory.url.appendingPathComponent("Novel.mobi")
+        let outputURL = directory.url.appendingPathComponent("Novel.epub")
+        FileManager.default.createFile(atPath: inputURL.path, contents: Data([1, 2, 3]))
+        let runner = RecordingRunner()
+        let service = ConverterService(ebookConvertURL: URL(fileURLWithPath: "/tmp/ebook-convert"), runner: runner)
+
+        _ = try await service.convert(inputURL: inputURL, outputURL: outputURL, profile: .textReflow)
+
+        let arguments = await runner.recordedArguments
+        #expect(!arguments.contains(where: { $0.hasPrefix("--extra-css=") }))
+        #expect(!arguments.contains(where: { $0.hasPrefix("--filter-css=") }))
+        #expect(arguments.contains("--pretty-print"))
+        #expect(arguments.contains("--epub-version=3"))
+    }
 }
 
 private actor RecordingRunner: ProcessRunning {

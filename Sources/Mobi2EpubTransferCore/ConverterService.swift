@@ -77,12 +77,15 @@ public struct ConverterService: Sendable {
     public func convert(
         inputURL: URL,
         outputURL: URL,
+        profile: ConversionProfile = .comicFixedLayout,
+        readingDirection: EpubReadingDirection = .rightToLeft,
         progressHandler: ConversionProgressHandler? = nil
     ) async throws -> ConversionRunResult {
-        if inputURL.pathExtension.lowercased() == "pdf" {
+        if inputURL.pathExtension.lowercased() == "pdf", profile == .comicFixedLayout {
             return try await PDFEpubConverter(runner: runner).convert(
                 inputURL: inputURL,
                 outputURL: outputURL,
+                readingDirection: readingDirection,
                 progressHandler: progressHandler
             )
         }
@@ -99,12 +102,19 @@ public struct ConverterService: Sendable {
             preparedInput.cleanup()
         }
 
-        let arguments = [
+        var arguments = [
             preparedInput.url.path,
             outputURL.path,
             "--preserve-cover-aspect-ratio",
             "--disable-font-rescaling",
-            "--pretty-print",
+            "--pretty-print"
+        ]
+        if profile == .textReflow {
+            // EPUB 3 preserves semantic HTML such as Japanese ruby annotations.
+            // Calibre's EPUB 2 output rejects <ruby> during EPUBCheck validation.
+            arguments.append("--epub-version=3")
+        } else {
+            arguments += [
             "--epub-max-image-size=none",
             "--margin-top=0",
             "--margin-right=0",
@@ -112,7 +122,8 @@ public struct ConverterService: Sendable {
             "--margin-left=0",
             "--filter-css=height,width,margin,margin-left,margin-right,margin-top,margin-bottom,padding,padding-left,padding-right,padding-top,padding-bottom",
             "--extra-css=\(Self.comicExtraCSS)"
-        ]
+            ]
+        }
 
         let result = try await runner.run(executableURL: ebookConvertURL, arguments: arguments)
         guard result.exitCode == 0 else {

@@ -60,6 +60,10 @@ public struct EpubValidator: Sendable {
     public static func validationStatus(exitCode: Int32, output: String) -> EpubValidationStatus {
         guard exitCode == 0 else { return .failed }
         let lowercasedOutput = output.lowercased()
+        if lowercasedOutput.contains("no errors or warnings detected") ||
+            lowercasedOutput.contains("0 errors / 0 warnings") {
+            return .passed
+        }
         if lowercasedOutput.contains("warning") || lowercasedOutput.contains("warn") {
             return .warnings
         }

@@ -62,7 +62,10 @@ public struct ComicEpubPostProcessor {
         self.fileManager = fileManager
     }
 
-    public func process(epubURL: URL) async throws -> ComicPostProcessResult {
+    public func process(
+        epubURL: URL,
+        readingDirection: EpubReadingDirection = .rightToLeft
+    ) async throws -> ComicPostProcessResult {
         let workingDirectory = fileManager.temporaryDirectory
             .appendingPathComponent("Mobi2EpubPostProcess")
             .appendingPathComponent(UUID().uuidString)
@@ -87,14 +90,16 @@ public struct ComicEpubPostProcessor {
         return try await buildFixedLayoutEPUB(
             title: title,
             imageFiles: imageFiles,
-            outputURL: epubURL
+            outputURL: epubURL,
+            readingDirection: readingDirection
         )
     }
 
     public func buildFixedLayoutEPUB(
         title: String,
         imageFiles: [URL],
-        outputURL: URL
+        outputURL: URL,
+        readingDirection: EpubReadingDirection = .rightToLeft
     ) async throws -> ComicPostProcessResult {
         let rebuiltDirectory = fileManager.temporaryDirectory
             .appendingPathComponent("MobiVerseRebuiltEPUB")
@@ -107,7 +112,8 @@ public struct ComicEpubPostProcessor {
         let pages = try rebuildFixedLayoutEPUB(
             title: title,
             imageFiles: imageFiles,
-            outputDirectory: rebuiltDirectory
+            outputDirectory: rebuiltDirectory,
+            readingDirection: readingDirection
         )
         let tocEntryCount = tocEntries(for: pages).count
 
@@ -144,7 +150,7 @@ public struct ComicEpubPostProcessor {
             imageCount: imageFiles.count,
             tocEntryCount: tocEntryCount,
             removedFixedImageSizing: true,
-            appliedRightToLeftMetadata: true,
+            appliedRightToLeftMetadata: readingDirection == .rightToLeft,
             appliedFixedLayoutMetadata: !pages.isEmpty
         )
     }
@@ -172,7 +178,8 @@ public struct ComicEpubPostProcessor {
     private func rebuildFixedLayoutEPUB(
         title: String,
         imageFiles: [URL],
-        outputDirectory: URL
+        outputDirectory: URL,
+        readingDirection: EpubReadingDirection
     ) throws -> [RebuiltPage] {
         let metaInfURL = outputDirectory.appendingPathComponent("META-INF", isDirectory: true)
         let oebpsURL = outputDirectory.appendingPathComponent("OEBPS", isDirectory: true)
@@ -200,7 +207,7 @@ public struct ComicEpubPostProcessor {
         }
 
         try writeNavigation(title: title, pages: pages, in: oebpsURL)
-        try writeContentOPF(title: title, pages: pages, in: oebpsURL)
+        try writeContentOPF(title: title, pages: pages, readingDirection: readingDirection, in: oebpsURL)
         return pages
     }
 
@@ -323,7 +330,12 @@ public struct ComicEpubPostProcessor {
         try nav.write(to: oebpsURL.appendingPathComponent("nav.xhtml"), atomically: true, encoding: .utf8)
     }
 
-    private func writeContentOPF(title: String, pages: [RebuiltPage], in oebpsURL: URL) throws {
+    private func writeContentOPF(
+        title: String,
+        pages: [RebuiltPage],
+        readingDirection: EpubReadingDirection,
+        in oebpsURL: URL
+    ) throws {
         let imageItems = pages.map { page in
             let coverProperty = page == pages.first ? #" properties="cover-image""# : ""
             return #"    <item id="\#(page.id)-image" href="images/\#(page.imageFileName)" media-type="\#(page.imageMediaType)"\#(coverProperty)/>"#
@@ -334,6 +346,9 @@ public struct ComicEpubPostProcessor {
         let spineItems = pages.map { page in
             #"    <itemref idref="\#(page.id)" properties="rendition:layout-pre-paginated svg"/>"#
         }.joined(separator: "\n")
+        let progression = readingDirection == .rightToLeft ? "rtl" : "ltr"
+        let writingMode = readingDirection == .rightToLeft ? "vertical-rl" : "horizontal-lr"
+        let language = readingDirection == .rightToLeft ? "ja" : "en"
         let opf = """
         <?xml version="1.0" encoding="UTF-8"?>
         <package xmlns="http://www.idpf.org/2007/opf"
@@ -343,11 +358,11 @@ public struct ComicEpubPostProcessor {
           <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
             <dc:identifier id="book-id">urn:uuid:\(UUID().uuidString)</dc:identifier>
             <dc:title>\(escapeXML(title))</dc:title>
-            <dc:language>ja</dc:language>
+            <dc:language>\(language)</dc:language>
             <meta property="rendition:layout">pre-paginated</meta>
             <meta property="rendition:orientation">auto</meta>
             <meta property="rendition:spread">none</meta>
-            <meta name="primary-writing-mode" content="vertical-rl"/>
+            <meta name="primary-writing-mode" content="\(writingMode)"/>
             <meta name="fixed-layout" content="true"/>
             <meta name="book-type" content="comic"/>
             <meta name="zero-gutter" content="true"/>
@@ -359,7 +374,7 @@ public struct ComicEpubPostProcessor {
         \(pageItems)
         \(imageItems)
           </manifest>
-          <spine page-progression-direction="rtl">
+          <spine page-progression-direction="\(progression)">
         \(spineItems)
           </spine>
         </package>

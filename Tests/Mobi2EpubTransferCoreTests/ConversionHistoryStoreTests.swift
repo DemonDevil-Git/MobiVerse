@@ -50,4 +50,22 @@ struct ConversionHistoryStoreTests {
         #expect(restoredTask.statusMessage == "Interrupted before completion")
         #expect(restoredTask.completedAt != nil)
     }
+
+    @Test
+    func legacyHistoryDefaultsToClassicComicProfile() throws {
+        let directory = try TemporaryDirectory()
+        let historyURL = directory.url.appendingPathComponent("history.json")
+        let task = ConversionTask(inputURL: directory.url.appendingPathComponent("Legacy.mobi"))
+        let encoder = JSONEncoder()
+        var object = try #require(try JSONSerialization.jsonObject(with: encoder.encode([task])) as? [[String: Any]])
+        object[0].removeValue(forKey: "conversionProfile")
+        object[0].removeValue(forKey: "readingDirection")
+        object[0].removeValue(forKey: "importSource")
+        object[0].removeValue(forKey: "detectedKind")
+        try JSONSerialization.data(withJSONObject: object).write(to: historyURL)
+
+        let restored = try #require(ConversionHistoryStore(historyURL: historyURL).load().first)
+        #expect(restored.conversionProfile == .comicFixedLayout)
+        #expect(restored.readingDirection == .rightToLeft)
+    }
 }

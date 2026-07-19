@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.1.dmg"><img src="https://img.shields.io/badge/macOS%202.2.1-Download-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse 2.2.1 for macOS"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.0.dmg"><img src="https://img.shields.io/badge/macOS%202.3.0-Download-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse 2.3.0 for macOS"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.2.0-Download-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="Download MobiVerse 2.2.0 for Windows"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=Latest%20release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
@@ -26,6 +26,12 @@
 </p>
 
 ## Why MobiVerse
+
+- **A private, built-in browser for finding legal reading sources**
+  Switch between Shelf and Browse without leaving MobiVerse. Browse with tabs and persistent sessions, manage bookmarks from the address bar, and monitor validated downloads in a dedicated tray. No ebook site is promoted or preinstalled.
+
+- **Local intelligent book analysis**
+  Browser downloads, file-picker imports, and drag-and-drop files share one analyze → review → convert flow. MobiVerse classifies text books, comics, and uncertain files locally, explains its confidence, and always lets you override the result and comic reading direction.
 
 - **A calmer 2.0 library workspace**  
   MobiVerse 2.0 replaces the plain utility layout with a warm macOS bookshelf interface, a clear drag-and-drop reading desk, sidebar conversion stats, and polished conversion cards.
@@ -45,8 +51,11 @@
 - **Apple Books friendly**  
   MobiVerse writes cover metadata, fixed-layout display options, and self-contained image pages to avoid stretched or black pages.
 
-- **Built-in EPUB preview**  
-  Open image-page and text EPUBs directly in the app. Comic pages support native horizontal paging and zoom, while text books provide complete spine navigation with previous/next controls and a section slider.
+- **A polished, paginated EPUB reader**
+  Reflowable books adapt each page to the reader viewport and turn horizontally instead of requiring vertical scrolling. Comics are fitted page-by-page with native horizontal navigation and zoom. Both modes restore the exact reading position when reopened.
+
+- **System-aware appearance**
+  The complete Shelf, Browse, settings, review, and reader interface adapts to macOS light and dark appearances. A persistent appearance menu lets you follow the system or choose Light or Dark manually.
 
 - **Direct EPUB library import**
   EPUBs opened directly are added to the library with extracted cover artwork. Reopening the same file updates the existing item instead of creating a duplicate.
@@ -80,20 +89,20 @@ MobiVerse does not remove DRM. Protected or unreadable files are reported clearl
 
 ### macOS
 
-1. Download the latest DMG: [MobiVerse-2.2.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.2.1.dmg).
-2. Open `MobiVerse-2.2.1.dmg`.
+1. Download the latest DMG: [MobiVerse-2.3.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.0.dmg).
+2. Open `MobiVerse-2.3.0.dmg`.
 3. Drag `MobiVerse.app` into `Applications`, replacing the previous version when prompted.
 4. Launch MobiVerse and drop supported files into the window, or open supported files with MobiVerse from Finder.
 
-The current macOS release is MobiVerse 2.2.1 (10) for Apple Silicon (`arm64`) only.
+The current macOS release is MobiVerse 2.3.0 (11) for Apple Silicon (`arm64`) only.
 
 ### Windows 11 ARM64
 
-The current Windows release remains 2.2.0. Download and run [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe). The package includes the x64 MobiVerse and Calibre components used through Windows 11 ARM64 emulation, plus the native ARM64 WebView2 runtime. MobiVerse 2.2.1 is currently a macOS-only update.
+The current Windows release remains 2.2.0. Download and run [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe). The package includes the x64 MobiVerse and Calibre components used through Windows 11 ARM64 emulation, plus the native ARM64 WebView2 runtime. MobiVerse 2.3.0 is currently a macOS-only update.
 
 Converted EPUB files are written next to the original source file without overwriting existing EPUBs.
 
-The release app bundles Calibre, so readers do not need to install Calibre separately.
+The release app bundles Calibre, EPUBCheck, and a Java runtime, so readers do not need to install validation or conversion dependencies separately.
 
 If macOS shows an "Apple could not verify MobiVerse" warning, that DMG was built without Apple Developer ID notarization. Public releases should be signed, notarized, and stapled before upload.
 
@@ -113,6 +122,20 @@ Opening an EPUB directly also adds it to the local library, extracts its cover t
 EPUB file references are confined to the extracted book directory. Text previews disable book-provided JavaScript, block remote web resources, restrict navigation, and use non-persistent WebView storage.
 
 PDF conversion preserves each page visually as a fixed-layout image. Selectable PDF text, links, annotations, and forms are not retained in the EPUB output.
+
+## What's New in 2.3.0
+
+- Added a macOS Shelf/Browse workspace with a persistent, isolated WKWebView browser, tabs, navigation controls, a start page, user-managed bookmarks, and bookmark-star toggling with an address-bar bookmark strip.
+- Added a download tray with progress, pause, cancel, retry, duplicate-name handling, configurable download location, and Finder reveal. Downloads are staged and checked by signature, MIME type, extension, and content; HTML error pages, executables, and disguised unsupported files are rejected.
+- Added browser privacy settings for clearing cookies, cache, and browsing history without removing downloaded books, conversion history, or bookmarks. EPUB preview remains a separate locked-down, non-persistent WebView with scripts and network access blocked.
+- Unified browser downloads, file selection, and drag-and-drop into a local analyze → review → convert flow. The review sheet shows text/comic/uncertain classification, confidence and evidence, supports batch review and user overrides, and provides left-to-right or right-to-left comic direction.
+- Added explicit text-reflow and comic-fixed-layout conversion routes. Existing comic CSS, image normalization, PDFKit fixed-layout conversion, manga metadata, EPUBCheck reporting, cover caching, retry, preview, Finder, and history behaviors are preserved.
+- EPUB inputs now pass through safe parsing, classification, cover extraction, and direct shelf import without unnecessary repackaging.
+- Text AZW/MOBI conversions now target EPUB 3. Japanese ruby annotations are preserved while invalid XML IDs, broken stylesheet/resource references, and NCX play order are repaired automatically before EPUBCheck validation.
+- Redesigned text EPUB preview as a refined viewport-fitted paginated reader with horizontal page turning, typography controls, reading themes, and exact section/page restoration. Comic EPUBs now use fitted horizontal pages and also restore the previous page.
+- Added a complete adaptive light/dark palette plus a persistent System/Light/Dark appearance control. The dark-mode reading still-life artwork is high resolution and normalized to the same visual size as the light artwork.
+- Release packages now always include Calibre, EPUBCheck, and the Java runtime required to run EPUBCheck.
+- Kept existing task history backward-compatible; older task JSON continues to decode with its original comic conversion behavior and does not trigger reprocessing.
 
 ## What's New in 2.2.1
 
@@ -148,9 +171,8 @@ PDF conversion preserves each page visually as a fixed-layout image. Selectable 
 ## Roadmap
 
 - Signed and notarized public DMG.
-- Optional EPUBCheck bundle for richer validation reports.
-- More explicit reading-direction controls for manga and western comics.
 - Better metadata editing for title, author, cover, and series fields.
+- A Windows Browse workspace using WebView2 with the same cross-platform models.
 
 ## FAQ
 
@@ -185,7 +207,7 @@ MobiVerse runs locally on your computer. Your books are not uploaded to a server
 - macOS 14 or later
 - Swift 6 / Xcode 26 or later
 - A local Calibre app only on the build machine, used as the source copied into distributable app bundles. Defaults to `/Applications/calibre.app`; override with `CALIBRE_APP=/path/to/calibre.app`.
-- Optional: `epubcheck` in `PATH` or `EPUBCHECK_JAR=/path/to/epubcheck.jar`
+- EPUBCheck and OpenJDK, required for every packaged validation or release build. The script detects common Homebrew locations or accepts `EPUBCHECK_JAR=/path/to/epubcheck.jar` and `EPUBCHECK_JAVA_HOME=/path/to/java/home`.
 
 ### Run from source
 
@@ -216,7 +238,7 @@ scripts/package-dmg.sh
 The generated installer image is written to:
 
 ```text
-.build/MobiVerse-2.2.1.dmg
+.build/MobiVerse-2.3.0.dmg
 ```
 
 Development builds use ad-hoc signing by default. They are suitable for local testing, but macOS Gatekeeper will block them after download from the internet.
@@ -246,11 +268,13 @@ scripts/package-dmg.sh
 
 The script signs the app with hardened runtime and timestamp, signs the DMG, submits it to Apple notarization, staples the ticket, and validates the final DMG.
 
-### Bundle EPUBCheck
+### EPUBCheck requirement
 
 ```sh
 EPUBCHECK_JAR=/path/to/epubcheck.jar scripts/package-dmg.sh
 ```
+
+Both scripts bundle Calibre, EPUBCheck, and its Java runtime. They fail instead of producing an incomplete or non-runnable package when any dependency is unavailable.
 
 ## Test
 

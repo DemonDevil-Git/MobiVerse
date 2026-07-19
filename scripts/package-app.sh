@@ -4,14 +4,14 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="MobiVerse"
 EXECUTABLE_NAME="Mobi2EpubTransfer"
-APP_VERSION="${APP_VERSION:-2.2.1}"
-APP_BUILD="${APP_BUILD:-10}"
+APP_VERSION="${APP_VERSION:-2.3.0}"
+APP_BUILD="${APP_BUILD:-11}"
 CALIBRE_APP="${CALIBRE_APP:-/Applications/calibre.app}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER:-com.mobiverse.app}"
 CODESIGN_ENTITLEMENTS="${CODESIGN_ENTITLEMENTS:-}"
-PACKAGE_WITHOUT_CALIBRE="${PACKAGE_WITHOUT_CALIBRE:-0}"
 EPUBCHECK_JAR="${EPUBCHECK_JAR:-}"
+EPUBCHECK_JAVA_HOME="${EPUBCHECK_JAVA_HOME:-}"
 
 APP_DIR="$ROOT_DIR/.build/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
@@ -24,15 +24,52 @@ RESOURCE_BUNDLE_PATH="$ROOT_DIR/.build/release/$RESOURCE_BUNDLE_NAME"
 RESOURCE_BUNDLE_DESTINATION="$RESOURCES_DIR/$RESOURCE_BUNDLE_NAME"
 APP_ICON="$ROOT_DIR/Assets/AppIcon/AppIcon.icns"
 
-if [[ "$PACKAGE_WITHOUT_CALIBRE" != "1" && ! -d "$CALIBRE_APP" ]]; then
+if [[ ! -d "$CALIBRE_APP" ]]; then
   echo "Calibre app not found at: $CALIBRE_APP" >&2
   echo "Install Calibre or run with CALIBRE_APP=/path/to/calibre.app" >&2
-  echo "For UI-only development builds, run PACKAGE_WITHOUT_CALIBRE=1 scripts/package-app.sh" >&2
   exit 1
 fi
 
-if [[ "$PACKAGE_WITHOUT_CALIBRE" != "1" && (! -x "$CALIBRE_APP/Contents/MacOS/ebook-convert" || ! -x "$CALIBRE_APP/Contents/MacOS/ebook-meta") ]]; then
+if [[ ! -x "$CALIBRE_APP/Contents/MacOS/ebook-convert" || ! -x "$CALIBRE_APP/Contents/MacOS/ebook-meta" ]]; then
   echo "Calibre CLI tools were not found inside: $CALIBRE_APP" >&2
+  exit 1
+fi
+
+if [[ -z "$EPUBCHECK_JAR" ]]; then
+  for candidate in \
+    /opt/homebrew/opt/epubcheck/libexec/epubcheck.jar \
+    /usr/local/opt/epubcheck/libexec/epubcheck.jar \
+    /opt/homebrew/share/java/epubcheck.jar \
+    /usr/local/share/java/epubcheck.jar; do
+    if [[ -f "$candidate" ]]; then
+      EPUBCHECK_JAR="$candidate"
+      break
+    fi
+  done
+fi
+
+if [[ -z "$EPUBCHECK_JAR" || ! -f "$EPUBCHECK_JAR" ]]; then
+  echo "EPUBCheck JAR was not found." >&2
+  echo "Install EPUBCheck or run with EPUBCHECK_JAR=/path/to/epubcheck.jar" >&2
+  echo "MobiVerse refuses to create validation or release packages without EPUBCheck." >&2
+  exit 1
+fi
+
+if [[ -z "$EPUBCHECK_JAVA_HOME" ]]; then
+  for candidate in \
+    /opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home \
+    /usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home; do
+    if [[ -x "$candidate/bin/java" ]]; then
+      EPUBCHECK_JAVA_HOME="$candidate"
+      break
+    fi
+  done
+fi
+
+if [[ -z "$EPUBCHECK_JAVA_HOME" || ! -x "$EPUBCHECK_JAVA_HOME/bin/java" ]]; then
+  echo "A Java runtime for bundled EPUBCheck was not found." >&2
+  echo "Install Homebrew OpenJDK or set EPUBCHECK_JAVA_HOME=/path/to/java/home" >&2
+  echo "MobiVerse refuses to create packages with a non-runnable EPUBCheck bundle." >&2
   exit 1
 fi
 
@@ -53,28 +90,22 @@ if [[ -f "$APP_ICON" ]]; then
   cp "$APP_ICON" "$RESOURCES_DIR/AppIcon.icns"
 fi
 
-if [[ "$PACKAGE_WITHOUT_CALIBRE" == "1" ]]; then
-  echo "Skipping bundled Calibre for this development build."
-else
-  /usr/bin/ditto "$CALIBRE_APP" "$THIRD_PARTY_DIR/calibre.app"
+/usr/bin/ditto "$CALIBRE_APP" "$THIRD_PARTY_DIR/calibre.app"
+
+mkdir -p "$THIRD_PARTY_DIR/epubcheck"
+EPUBCHECK_SOURCE_DIR="$(cd "$(dirname "$EPUBCHECK_JAR")" && pwd)"
+if [[ -d "$EPUBCHECK_SOURCE_DIR/lib" ]]; then
+  /usr/bin/ditto "$EPUBCHECK_SOURCE_DIR/lib" "$THIRD_PARTY_DIR/epubcheck/lib"
 fi
-
-if [[ -n "$EPUBCHECK_JAR" ]]; then
-  if [[ ! -f "$EPUBCHECK_JAR" ]]; then
-    echo "EPUBCHECK_JAR does not exist: $EPUBCHECK_JAR" >&2
-    exit 1
-  fi
-
-  mkdir -p "$THIRD_PARTY_DIR/epubcheck"
-  cp "$EPUBCHECK_JAR" "$THIRD_PARTY_DIR/epubcheck/epubcheck.jar"
-  cat > "$THIRD_PARTY_DIR/epubcheck/epubcheck" <<'WRAPPER'
+cp "$EPUBCHECK_JAR" "$THIRD_PARTY_DIR/epubcheck/epubcheck.jar"
+/usr/bin/ditto "$EPUBCHECK_JAVA_HOME" "$THIRD_PARTY_DIR/java"
+cat > "$THIRD_PARTY_DIR/epubcheck/epubcheck" <<'WRAPPER'
 #!/usr/bin/env bash
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec /usr/bin/java -jar "$SCRIPT_DIR/epubcheck.jar" "$@"
+exec "$SCRIPT_DIR/../java/bin/java" -jar "$SCRIPT_DIR/epubcheck.jar" "$@"
 WRAPPER
-  chmod +x "$THIRD_PARTY_DIR/epubcheck/epubcheck"
-fi
+chmod +x "$THIRD_PARTY_DIR/epubcheck/epubcheck"
 
 cp "$ROOT_DIR/ThirdPartyNotices.md" "$RESOURCES_DIR/ThirdPartyNotices.md"
 
@@ -162,6 +193,19 @@ for resource_name in hero-books-background reading-still-life; do
   fi
 done
 
+if [[ ! -x "$THIRD_PARTY_DIR/calibre.app/Contents/MacOS/ebook-convert" \
+   || ! -x "$THIRD_PARTY_DIR/calibre.app/Contents/MacOS/ebook-meta" ]]; then
+  echo "Packaged app is missing bundled Calibre CLI tools." >&2
+  exit 1
+fi
+
+if [[ ! -f "$THIRD_PARTY_DIR/epubcheck/epubcheck.jar" \
+   || ! -x "$THIRD_PARTY_DIR/epubcheck/epubcheck" \
+   || ! -x "$THIRD_PARTY_DIR/java/bin/java" ]]; then
+  echo "Packaged app is missing bundled EPUBCheck." >&2
+  exit 1
+fi
+
 echo "Packaged app: $APP_DIR"
 echo "App version: $APP_VERSION ($APP_BUILD)"
 echo "SwiftPM resources: $RESOURCE_BUNDLE_DESTINATION"
@@ -170,13 +214,6 @@ if [[ -f "$APP_ICON" ]]; then
 else
   echo "App icon: missing"
 fi
-if [[ "$PACKAGE_WITHOUT_CALIBRE" == "1" ]]; then
-  echo "Bundled Calibre: skipped"
-else
-  echo "Bundled Calibre: $APP_DIR/Contents/Resources/ThirdParty/calibre.app"
-fi
-if [[ -n "$EPUBCHECK_JAR" ]]; then
-  echo "Bundled EPUBCheck: $APP_DIR/Contents/Resources/ThirdParty/epubcheck/epubcheck.jar"
-else
-  echo "Bundled EPUBCheck: skipped"
-fi
+echo "Bundled Calibre: $APP_DIR/Contents/Resources/ThirdParty/calibre.app"
+echo "Bundled EPUBCheck: $APP_DIR/Contents/Resources/ThirdParty/epubcheck/epubcheck.jar"
+echo "Bundled Java runtime: $APP_DIR/Contents/Resources/ThirdParty/java"

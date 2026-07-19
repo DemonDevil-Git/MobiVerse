@@ -51,23 +51,72 @@ final class ConversionViewModel: ObservableObject {
 
     @discardableResult
     func addFiles(_ urls: [URL]) -> [ConversionTask] {
-        let filteredURLs = urls.filter { acceptedExtensions.contains($0.pathExtension.lowercased()) }
+        addReviewedFiles(urls.map {
+            ReviewedImport(
+                url: $0,
+                source: .filePicker,
+                detectedKind: .comic,
+                profile: .comicFixedLayout,
+                readingDirection: .rightToLeft
+            )
+        })
+    }
+
+    @discardableResult
+    func addReviewedFiles(_ imports: [ReviewedImport]) -> [ConversionTask] {
         var addedOrExistingTasks: [ConversionTask] = []
         var newTasks: [ConversionTask] = []
+        var didQueueTask = false
 
-        for url in filteredURLs {
-            if let existingTask = tasks.first(where: { $0.inputURL == url }) {
-                addedOrExistingTasks.append(existingTask)
+        for item in imports where acceptedExtensions.contains(item.url.pathExtension.lowercased()) {
+            let url = item.url
+            if let existingIndex = tasks.firstIndex(where: { $0.inputURL == url }) {
+                if [.queued, .checkingTools, .converting, .validating].contains(tasks[existingIndex].status) {
+                    addedOrExistingTasks.append(tasks[existingIndex])
+                    continue
+                }
+                let needsReconversion = tasks[existingIndex].conversionProfile != item.profile
+                    || tasks[existingIndex].readingDirection != item.readingDirection
+                tasks[existingIndex].importSource = item.source
+                tasks[existingIndex].detectedKind = item.detectedKind
+                tasks[existingIndex].conversionProfile = item.profile
+                tasks[existingIndex].readingDirection = item.readingDirection
+                if tasks[existingIndex].status == .failed
+                    || isOutputMissing(for: tasks[existingIndex])
+                    || needsReconversion {
+                    coverImages[tasks[existingIndex].id] = nil
+                    coverThumbnailCache.removeImage(for: tasks[existingIndex])
+                    tasks[existingIndex].status = .queued
+                    tasks[existingIndex].progress = 0
+                    tasks[existingIndex].statusMessage = "Waiting"
+                    tasks[existingIndex].outputURL = nil
+                    tasks[existingIndex].reportURL = nil
+                    tasks[existingIndex].log = ""
+                    tasks[existingIndex].completedAt = nil
+                    didQueueTask = true
+                }
+                addedOrExistingTasks.append(tasks[existingIndex])
             } else {
-                let task = ConversionTask(inputURL: url)
+                let task = ConversionTask(
+                    inputURL: url,
+                    importSource: item.source,
+                    detectedKind: item.detectedKind,
+                    conversionProfile: item.profile,
+                    readingDirection: item.readingDirection
+                )
                 newTasks.append(task)
                 addedOrExistingTasks.append(task)
+                didQueueTask = true
             }
         }
 
         if !newTasks.isEmpty {
             tasks.append(contentsOf: newTasks)
+        }
+        if !imports.isEmpty {
             persistTasks()
+        }
+        if didQueueTask {
             startProcessingIfNeeded()
         }
 
@@ -206,6 +255,7 @@ final class ConversionViewModel: ObservableObject {
     private func processTask(at index: Int) async {
         let taskID = tasks[index].id
         let usesNativePDFConversion = tasks[index].inputURL.pathExtension.lowercased() == "pdf"
+            && tasks[index].conversionProfile == .comicFixedLayout
         tasks[index].status = .checkingTools
         tasks[index].progress = 0.1
         tasks[index].statusMessage = usesNativePDFConversion
@@ -237,7 +287,9 @@ final class ConversionViewModel: ObservableObject {
 
             let conversion = try await converter.convert(
                 inputURL: tasks[index].inputURL,
-                outputURL: outputURL
+                outputURL: outputURL,
+                profile: tasks[index].conversionProfile,
+                readingDirection: tasks[index].readingDirection
             ) { [weak self] update in
                 Task { @MainActor in
                     self?.applyConversionProgress(update, toTaskID: taskID)
@@ -250,12 +302,22 @@ final class ConversionViewModel: ObservableObject {
                 tasks[index].statusMessage = "Preparing validation report"
                 tasks[index].progress = 0.8
                 postProcessReport = completedReport
-            } else {
+            } else if tasks[index].conversionProfile == .comicFixedLayout {
                 tasks[index].statusMessage = "Optimizing comic EPUB layout"
                 tasks[index].progress = 0.65
                 persistTasks()
                 let postProcessor = ComicEpubPostProcessor()
-                postProcessReport = try await postProcessor.process(epubURL: outputURL).reportText
+                postProcessReport = try await postProcessor.process(
+                    epubURL: outputURL,
+                    readingDirection: tasks[index].readingDirection
+                ).reportText
+            } else {
+                tasks[index].statusMessage = "Repairing text EPUB structure"
+                tasks[index].progress = 0.72
+                persistTasks()
+                postProcessReport = try await TextEpubPostProcessor()
+                    .process(epubURL: outputURL)
+                    .reportText
             }
 
             let reportURL = outputPolicy.reportURL(for: outputURL)

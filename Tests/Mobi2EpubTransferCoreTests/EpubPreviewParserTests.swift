@@ -52,6 +52,29 @@ struct EpubPreviewParserTests {
     }
 
     @Test
+    func splitsManyImagesInOneSpineDocumentIntoComicPages() async throws {
+        let directory = try TemporaryDirectory()
+        let bookDirectory = directory.url.appendingPathComponent("single-document-comic")
+        try createSingleDocumentComicEPUBDirectory(at: bookDirectory, imagePageCount: 4)
+        let epubURL = try await zipEPUBDirectory(
+            bookDirectory,
+            outputURL: directory.url.appendingPathComponent("single-document-comic.epub")
+        )
+
+        let book = try await EpubPreviewParser().parse(
+            epubURL: epubURL,
+            extractionDirectory: directory.url.appendingPathComponent("preview")
+        )
+
+        if case .imagePages(let pages) = book.mode {
+            #expect(pages.count == 4)
+            #expect(pages.map { $0.imageURL.lastPathComponent } == ["001.jpg", "002.jpg", "003.jpg", "004.jpg"])
+        } else {
+            Issue.record("Expected multi-image XHTML to be split into comic pages")
+        }
+    }
+
+    @Test
     func parsesTextEPUBAsWebPreview() async throws {
         let directory = try TemporaryDirectory()
         let bookDirectory = directory.url.appendingPathComponent("text-book")
@@ -208,6 +231,47 @@ struct EpubPreviewParserTests {
             <item id="chapter-2" href="pages/chapter-2.xhtml" media-type="application/xhtml+xml"/>
           </manifest>
           <spine><itemref idref="cover"/><itemref idref="chapter-1"/><itemref idref="chapter-2"/></spine>
+        </package>
+        """.write(to: oebpsURL.appendingPathComponent("content.opf"), atomically: true, encoding: .utf8)
+    }
+
+    private func createSingleDocumentComicEPUBDirectory(at directory: URL, imagePageCount: Int) throws {
+        let metaInfURL = directory.appendingPathComponent("META-INF", isDirectory: true)
+        let oebpsURL = directory.appendingPathComponent("OEBPS", isDirectory: true)
+        let imagesURL = oebpsURL.appendingPathComponent("images", isDirectory: true)
+        try FileManager.default.createDirectory(at: metaInfURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true)
+
+        try "application/epub+zip".write(to: directory.appendingPathComponent("mimetype"), atomically: true, encoding: .utf8)
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+          <rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>
+        </container>
+        """.write(to: metaInfURL.appendingPathComponent("container.xml"), atomically: true, encoding: .utf8)
+
+        let imageMarkup = (1...imagePageCount).map { number in
+            #"<p><img src="images/\#(String(format: "%03d", number)).jpg"/></p>"#
+        }.joined(separator: "\n")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <html xmlns="http://www.w3.org/1999/xhtml"><body>\(imageMarkup)</body></html>
+        """.write(to: oebpsURL.appendingPathComponent("index.xhtml"), atomically: true, encoding: .utf8)
+
+        for number in 1...imagePageCount {
+            let filename = String(format: "%03d.jpg", number)
+            FileManager.default.createFile(
+                atPath: imagesURL.appendingPathComponent(filename).path,
+                contents: Data([0xFF, 0xD8, 0xFF, 0xD9])
+            )
+        }
+
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+          <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Single Document Comic</dc:title></metadata>
+          <manifest><item id="pages" href="index.xhtml" media-type="application/xhtml+xml"/></manifest>
+          <spine page-progression-direction="rtl"><itemref idref="pages"/></spine>
         </package>
         """.write(to: oebpsURL.appendingPathComponent("content.opf"), atomically: true, encoding: .utf8)
     }

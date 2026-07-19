@@ -4,7 +4,12 @@ import UniformTypeIdentifiers
 import WebKit
 
 struct ContentView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(AppAppearancePreference.storageKey) private var appearanceRawValue = AppAppearancePreference.system.rawValue
     @StateObject private var viewModel = ConversionViewModel()
+    @StateObject private var importReview = ImportReviewCoordinator()
+    @StateObject private var browserTabs = BrowserTabStore()
+    @StateObject private var browserDownloads = BrowserDownloadManager()
     @ObservedObject private var openBookRouter = OpenBookRouter.shared
     @State private var isSidebarVisible = true
     @State private var isToolStatusPresented = false
@@ -12,6 +17,8 @@ struct ContentView: View {
     @State private var presentedAlert: ContentAlert?
     @State private var readingPreparation: ReadingPreparation?
     @State private var taskLayout = TaskLayout.grid
+    @State private var workspace = AppWorkspace.library
+    @State private var isImportReviewPresented = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -21,7 +28,16 @@ struct ContentView: View {
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
 
-            mainContent
+            Group {
+                switch workspace {
+                case .library:
+                    mainContent
+                case .browser:
+                    BrowserWorkspace(tabs: browserTabs, downloads: browserDownloads) { url in
+                        Task { await analyzeImports([url], source: .browserDownload) }
+                    }
+                }
+            }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .animation(.easeInOut(duration: 0.18), value: isSidebarVisible)
@@ -53,7 +69,14 @@ struct ContentView: View {
             allowsMultipleSelection: true
         ) { result in
             if case let .success(urls) = result {
-                openBooks(urls)
+                Task { await analyzeImports(urls, source: .filePicker) }
+            }
+        }
+        .sheet(isPresented: $isImportReviewPresented) {
+            ImportReviewSheet(coordinator: importReview) {
+                isImportReviewPresented = false
+            } onConfirm: { items in
+                confirmImports(items)
             }
         }
         .alert(item: $presentedAlert) { alert in
@@ -85,6 +108,18 @@ struct ContentView: View {
             if let readingPreparation {
                 ReadingPreparationOverlay(preparation: readingPreparation)
                     .transition(.opacity.combined(with: .scale(scale: 0.985)))
+            } else if importReview.isAnalyzing {
+                ZStack {
+                    Color.black.opacity(0.18).ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("Analyzing book layout…").font(.headline)
+                        Text("This happens locally on your Mac.").font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(26)
+                    .background(MobiPalette.sidebar, in: RoundedRectangle(cornerRadius: 18))
+                    .shadow(radius: 18)
+                }
             }
         }
         .animation(.easeInOut(duration: 0.18), value: readingPreparation)
@@ -92,11 +127,18 @@ struct ContentView: View {
             updateReadingPreparation()
         }
         .onOpenURL { url in
-            openBooks([url])
+            Task { await analyzeImports([url], source: .filePicker) }
         }
         .onChange(of: openBookRouter.request) { _, request in
             guard let request else { return }
-            openBooks(request.urls)
+            Task { await analyzeImports(request.urls, source: .filePicker) }
+        }
+        .onAppear {
+            selectedAppearance.apply()
+            if !importReview.items.isEmpty { isImportReviewPresented = true }
+        }
+        .onChange(of: appearanceRawValue) { _, _ in
+            selectedAppearance.apply()
         }
     }
 
@@ -114,6 +156,13 @@ struct ContentView: View {
             .frame(maxWidth: .infinity)
             .padding(.bottom, 24)
 
+            Picker("Workspace", selection: $workspace) {
+                Label("Shelf", systemImage: "books.vertical").tag(AppWorkspace.library)
+                Label("Browse", systemImage: "globe").tag(AppWorkspace.browser)
+            }
+            .pickerStyle(.segmented)
+            .padding(.bottom, 18)
+
             Button {
                 viewModel.isImporterPresented = true
             } label: {
@@ -124,6 +173,17 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(MobiPalette.sage)
+
+            if !importReview.items.isEmpty {
+                Button {
+                    isImportReviewPresented = true
+                } label: {
+                    Label("Review \(importReview.items.count) import\(importReview.items.count == 1 ? "" : "s")", systemImage: "checklist")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .padding(.top, 8)
+            }
 
             Button {
                 viewModel.retryFailedTasks()
@@ -148,17 +208,30 @@ struct ContentView: View {
 
             Spacer()
 
-            AppResourceImage(name: "reading-still-life")
+            AppResourceImage(name: colorScheme == .dark ? "reading-still-life-dark" : "reading-still-life")
                 .scaledToFit()
                 .frame(maxWidth: .infinity)
                 .frame(maxHeight: 360, alignment: .bottom)
+                // The dark asset has wider transparent safety margins for clean
+                // antialiasing. Normalize its visible alpha bounds to the light asset.
+                .scaleEffect(
+                    x: colorScheme == .dark ? 1.46 : 1,
+                    y: colorScheme == .dark ? 1.37 : 1,
+                    anchor: .center
+                )
                 .padding(.horizontal, 4)
                 .padding(.bottom, 12)
                 .accessibilityHidden(true)
 
-            Label(viewModel.canConvert ? "Ready to convert" : "Converter unavailable", systemImage: viewModel.canConvert ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(viewModel.canConvert ? MobiPalette.sage : .orange)
+            HStack(spacing: 10) {
+                Label(viewModel.canConvert ? "Ready to convert" : "Converter unavailable", systemImage: viewModel.canConvert ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(viewModel.canConvert ? MobiPalette.sage : .orange)
+
+                Spacer(minLength: 6)
+
+                AppearanceMenu(selectionRawValue: $appearanceRawValue)
+            }
         }
         .foregroundStyle(MobiPalette.ink)
         .padding(.horizontal, 22)
@@ -170,6 +243,10 @@ struct ContentView: View {
 
     private var completedTaskCount: Int {
         viewModel.tasks.filter { $0.status == .succeeded || $0.status == .succeededWithWarnings }.count
+    }
+
+    private var selectedAppearance: AppAppearancePreference {
+        AppAppearancePreference(rawValue: appearanceRawValue) ?? .system
     }
 
     private var failedTaskCount: Int {
@@ -197,6 +274,7 @@ struct ContentView: View {
             dropZone
             taskList
         }
+        .foregroundStyle(MobiPalette.ink)
         .background(MobiPalette.paper)
     }
 
@@ -206,6 +284,11 @@ struct ContentView: View {
             .frame(maxWidth: .infinity)
             .frame(height: 250)
             .clipped()
+            .overlay {
+                if colorScheme == .dark {
+                    Color.black.opacity(0.32)
+                }
+            }
             .onDrop(of: ["public.file-url"], isTargeted: nil) { providers in
                 loadDroppedFiles(from: providers)
             return true
@@ -315,7 +398,7 @@ struct ContentView: View {
                 }
 
                 Task { @MainActor in
-                    openBooks([url])
+                    await analyzeImports([url], source: .dragAndDrop)
                 }
             }
         }
@@ -326,44 +409,40 @@ struct ContentView: View {
         openEpubPreview(outputURL)
     }
 
-    private func openBooks(_ urls: [URL]) {
-        for url in urls {
-            if isEpub(url) {
-                readingPreparation = ReadingPreparation(
-                    sourceTitle: url.deletingPathExtension().lastPathComponent,
-                    message: "Opening EPUB preview",
-                    progress: nil
-                )
-                openEpubPreview(url, addToLibrary: true)
-                continue
-            }
-
-            guard viewModel.acceptedExtensions.contains(url.pathExtension.lowercased()) else { continue }
-            guard let task = viewModel.addFiles([url]).first else { continue }
-
-            if let outputURL = task.outputURL,
-               !viewModel.isOutputMissing(for: task),
-               task.status == .succeeded || task.status == .succeededWithWarnings {
-                readingPreparation = ReadingPreparation(
-                    taskID: task.id,
-                    sourceTitle: task.inputURL.deletingPathExtension().lastPathComponent,
-                    message: "Opening converted EPUB",
-                    progress: 1
-                )
-                openEpubPreview(outputURL)
-            } else {
-                readingPreparation = ReadingPreparation(
-                    taskID: task.id,
-                    sourceTitle: task.inputURL.deletingPathExtension().lastPathComponent,
-                    message: readingMessage(for: task),
-                    progress: task.progress
-                )
-
-                if task.status == .failed || viewModel.isOutputMissing(for: task) {
-                    viewModel.requeueTask(task)
-                }
-            }
+    @MainActor
+    private func analyzeImports(_ urls: [URL], source: ImportSource) async {
+        let supported = urls.filter {
+            isEpub($0) || viewModel.acceptedExtensions.contains($0.pathExtension.lowercased())
         }
+        guard !supported.isEmpty else { return }
+        await importReview.analyze(
+            urls: supported,
+            source: source,
+            ebookConvertURL: viewModel.toolchain.ebookConvertURL
+        )
+        isImportReviewPresented = !importReview.items.isEmpty
+    }
+
+    private func confirmImports(_ items: [PendingImport]) {
+        let convertable = items.compactMap { item -> ReviewedImport? in
+            guard !item.isEPUB, let profile = item.selectedProfile else { return nil }
+            return ReviewedImport(
+                url: item.url,
+                source: item.source,
+                detectedKind: item.classification.kind,
+                profile: profile,
+                readingDirection: item.readingDirection
+            )
+        }
+        _ = viewModel.addReviewedFiles(convertable)
+        let epubs = items.filter(\.isEPUB)
+        for item in epubs { viewModel.addEpubToLibrary(item.url) }
+        if let firstEPUB = epubs.first?.url {
+            openEpubPreview(firstEPUB)
+        }
+        importReview.removeAll()
+        isImportReviewPresented = false
+        workspace = .library
     }
 
     private func updateReadingPreparation() {
@@ -501,20 +580,6 @@ private enum ContentAlert: Identifiable {
     }
 }
 
-private enum MobiPalette {
-    static let ink = Color(red: 0.08, green: 0.16, blue: 0.20)
-    static let paper = Color(red: 0.965, green: 0.948, blue: 0.91)
-    static let sidebar = Color(red: 0.973, green: 0.961, blue: 0.933)
-    static let cream = Color(red: 0.95, green: 0.90, blue: 0.81)
-    static let sage = Color(red: 0.31, green: 0.48, blue: 0.31)
-    static let terracotta = Color(red: 0.72, green: 0.28, blue: 0.16)
-    static let walnut = Color(red: 0.38, green: 0.21, blue: 0.12)
-    static let walnutLight = Color(red: 0.58, green: 0.36, blue: 0.22)
-    static let cobalt = Color(red: 0.18, green: 0.35, blue: 0.45)
-    static let mint = sage
-    static let coral = terracotta
-}
-
 private struct AppResourceImage: View {
     let name: String
 
@@ -597,6 +662,41 @@ private struct SidebarMetric: View {
                 .font(.callout.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+private struct AppearanceMenu: View {
+    @Binding var selectionRawValue: String
+
+    private var selection: AppAppearancePreference {
+        AppAppearancePreference(rawValue: selectionRawValue) ?? .system
+    }
+
+    var body: some View {
+        Menu {
+            ForEach(AppAppearancePreference.allCases) { option in
+                Button {
+                    selectionRawValue = option.rawValue
+                } label: {
+                    Label(option.title, systemImage: selection == option ? "checkmark" : option.icon)
+                }
+            }
+        } label: {
+            Image(systemName: selection.icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(MobiPalette.ink.opacity(0.72))
+                .frame(width: 27, height: 27)
+                .background(MobiPalette.surface.opacity(0.72), in: Circle())
+                .overlay {
+                    Circle().stroke(MobiPalette.ink.opacity(0.10), lineWidth: 1)
+                }
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Appearance: \(selection.title)")
+        .accessibilityLabel("Appearance")
+        .accessibilityValue(selection.title)
     }
 }
 
@@ -996,14 +1096,22 @@ private final class EpubPreviewWindowController: NSWindowController, NSWindowDel
         window.minSize = NSSize(width: 780, height: 620)
         super.init(window: window)
         window.delegate = self
+        let legacyInterpretation: LegacyReadingPositionInterpretation = switch book.mode {
+        case .imagePages: .page
+        case .web: .section
+        }
+        let initialPosition = readingPositionStore.position(
+            for: book.epubURL,
+            legacyInterpretation: legacyInterpretation
+        ) ?? PreviewReadingPosition(sectionIndex: 0, pageIndex: 0)
         window.contentView = PreviewHostingView(
             rootView: EpubPreviewView(
                 book: book,
                 windowState: windowState,
                 gestureRouter: gestureRouter,
-                initialPageIndex: readingPositionStore.pageIndex(for: book.epubURL) ?? 0,
-                savePageIndex: { [readingPositionStore, epubURL = book.epubURL] pageIndex in
-                    readingPositionStore.save(pageIndex: pageIndex, for: epubURL)
+                initialPosition: initialPosition,
+                savePosition: { [readingPositionStore, epubURL = book.epubURL] position in
+                    readingPositionStore.save(position: position, for: epubURL)
                 },
                 toggleFullScreen: { [weak window] in
                     guard let window else { return }
@@ -1159,12 +1267,17 @@ private struct AddBookShelfCard: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(MobiPalette.ink)
-        .background(.white.opacity(0.32), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(MobiPalette.surface.opacity(0.72), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(MobiPalette.ink.opacity(0.12), style: StrokeStyle(lineWidth: 1, dash: [7, 6]))
         }
     }
+}
+
+private enum AppWorkspace: Hashable {
+    case library
+    case browser
 }
 
 private enum TaskLayout: Hashable {
@@ -1182,7 +1295,7 @@ private struct TaskLayoutToggle: View {
         }
         .font(.callout)
         .padding(5)
-        .background(.white.opacity(0.76), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(MobiPalette.surface.opacity(0.90), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(MobiPalette.ink.opacity(0.06))
@@ -1200,7 +1313,7 @@ private struct TaskLayoutToggle: View {
                 .background {
                     if selectedLayout == layout {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(.white.opacity(0.9))
+                            .fill(MobiPalette.surfaceRaised)
                             .shadow(color: MobiPalette.ink.opacity(0.08), radius: 3, y: 1)
                     }
                 }
@@ -1259,7 +1372,7 @@ private struct TaskRow: View {
             }
         }
         .padding(14)
-        .background(.white.opacity(0.76), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(MobiPalette.surface.opacity(0.90), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(MobiPalette.ink.opacity(0.055))
@@ -1378,21 +1491,31 @@ private struct EpubPreviewView: View {
     let book: EpubPreviewBook
     @ObservedObject var windowState: EpubPreviewWindowState
     let gestureRouter: PreviewGestureRouter
-    let initialPageIndex: Int
-    let savePageIndex: (Int) -> Void
+    let initialPosition: PreviewReadingPosition
+    let savePosition: (PreviewReadingPosition) -> Void
     let toggleFullScreen: () -> Void
     let close: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(MobiPalette.cream.opacity(0.72))
+                    Image(systemName: "book.pages.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(MobiPalette.sage)
+                }
+                .frame(width: 38, height: 38)
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(book.title)
-                        .font(.headline)
+                        .font(.system(size: 17, weight: .semibold, design: .serif))
+                        .foregroundStyle(MobiPalette.ink)
                         .lineLimit(1)
                     Text(modeLabel)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(MobiPalette.ink.opacity(0.54))
                 }
                 Spacer()
 
@@ -1403,6 +1526,7 @@ private struct EpubPreviewView: View {
                         .frame(width: 30, height: 26)
                 }
                 .buttonStyle(.bordered)
+                .tint(MobiPalette.sage)
                 .help(fullScreenButtonLabel)
 
                 Button {
@@ -1412,26 +1536,34 @@ private struct EpubPreviewView: View {
                         .frame(width: 30, height: 26)
                 }
                 .buttonStyle(.bordered)
+                .tint(MobiPalette.ink.opacity(0.72))
                 .help("Close preview")
             }
             .labelStyle(.iconOnly)
             .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(.bar)
+            .padding(.vertical, 9)
+            .background(MobiPalette.sidebar)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(MobiPalette.ink.opacity(0.08)).frame(height: 1)
+            }
 
             switch book.mode {
             case .imagePages(let pages):
                 ComicImagePreview(
                     pages: pages,
                     gestureRouter: gestureRouter,
-                    initialPageIndex: initialPageIndex,
-                    savePageIndex: savePageIndex
+                    initialPageIndex: initialPosition.pageIndex,
+                    savePageIndex: { pageIndex in
+                        savePosition(PreviewReadingPosition(sectionIndex: 0, pageIndex: pageIndex))
+                    }
                 )
             case .web(let spineURLs):
                 TextEpubPreview(
                     spineURLs: spineURLs,
                     readAccessURL: book.contentRootDirectory,
-                    gestureRouter: gestureRouter
+                    gestureRouter: gestureRouter,
+                    initialPosition: initialPosition,
+                    savePosition: savePosition
                 )
             }
         }
@@ -1679,72 +1811,413 @@ private struct EpubImagePage: View {
     }
 }
 
+private enum TextReaderTheme: String, CaseIterable, Identifiable {
+    case paper
+    case sepia
+    case night
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .paper: "Paper"
+        case .sepia: "Sepia"
+        case .night: "Night"
+        }
+    }
+
+    var pageColor: Color {
+        switch self {
+        case .paper: Color(red: 0.985, green: 0.978, blue: 0.95)
+        case .sepia: Color(red: 0.94, green: 0.87, blue: 0.72)
+        case .night: Color(red: 0.105, green: 0.135, blue: 0.14)
+        }
+    }
+
+    var canvasColor: Color {
+        switch self {
+        case .paper: Color(red: 0.89, green: 0.875, blue: 0.82)
+        case .sepia: Color(red: 0.76, green: 0.68, blue: 0.54)
+        case .night: Color(red: 0.045, green: 0.06, blue: 0.065)
+        }
+    }
+
+    var primaryColor: Color {
+        self == .night ? Color(red: 0.88, green: 0.87, blue: 0.81) : MobiPalette.ink
+    }
+
+    var cssPageColor: String {
+        switch self {
+        case .paper: "#fbf8ef"
+        case .sepia: "#f0dfb8"
+        case .night: "#1b2324"
+        }
+    }
+
+    var cssInkColor: String {
+        switch self {
+        case .paper: "#223034"
+        case .sepia: "#3d3024"
+        case .night: "#e1dfd2"
+        }
+    }
+
+    var cssMutedColor: String {
+        switch self {
+        case .paper: "#677174"
+        case .sepia: "#796a57"
+        case .night: "#aab2ae"
+        }
+    }
+
+    var cssAccentColor: String {
+        switch self {
+        case .paper: "#8f4935"
+        case .sepia: "#7a4930"
+        case .night: "#d78a70"
+        }
+    }
+}
+
+private struct TextReaderAppearance: Equatable {
+    let theme: TextReaderTheme
+    let fontScale: Double
+    let lineHeight: Double
+}
+
 private struct TextEpubPreview: View {
     let spineURLs: [URL]
     let readAccessURL: URL
     @ObservedObject var gestureRouter: PreviewGestureRouter
-    @State private var sectionIndex = 0
+    let savePosition: (PreviewReadingPosition) -> Void
+    @State private var sectionIndex: Int
+    @State private var pageIndex: Int
+    @State private var pageCount = 1
+    @State private var shouldOpenLastPage = false
+    @State private var showsAppearance = false
+    @AppStorage("MobiVerseTextReaderTheme") private var themeRawValue = TextReaderTheme.paper.rawValue
+    @AppStorage("MobiVerseTextReaderFontScale") private var fontScale = 1.0
+    @AppStorage("MobiVerseTextReaderLineHeight") private var lineHeight = 1.64
+
+    init(
+        spineURLs: [URL],
+        readAccessURL: URL,
+        gestureRouter: PreviewGestureRouter,
+        initialPosition: PreviewReadingPosition,
+        savePosition: @escaping (PreviewReadingPosition) -> Void
+    ) {
+        self.spineURLs = spineURLs
+        self.readAccessURL = readAccessURL
+        self.gestureRouter = gestureRouter
+        self.savePosition = savePosition
+        _sectionIndex = State(
+            initialValue: min(max(initialPosition.sectionIndex, 0), max(spineURLs.count - 1, 0))
+        )
+        _pageIndex = State(initialValue: max(initialPosition.pageIndex, 0))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            EpubWebPreview(
-                startURL: spineURLs[sectionIndex],
-                readAccessURL: readAccessURL
-            )
+            GeometryReader { proxy in
+                ZStack {
+                    theme.canvasColor
 
-            HStack(spacing: 12) {
-                Button(action: moveBackward) {
-                    Label("Previous section", systemImage: "chevron.left")
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(theme.pageColor)
+                        .shadow(color: .black.opacity(theme == .night ? 0.28 : 0.13), radius: 22, y: 8)
+
+                    EpubWebPreview(
+                        startURL: spineURLs[sectionIndex],
+                        readAccessURL: readAccessURL,
+                        pageIndex: pageIndex,
+                        viewportSize: CGSize(width: max(proxy.size.width - 36, 1), height: max(proxy.size.height - 34, 1)),
+                        appearance: appearance,
+                        onPageCountChanged: updatePageCount
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                    readerPositionBadge
+                        .padding(13)
+                        .allowsHitTesting(false)
                 }
-                .disabled(sectionIndex == 0)
-
-                Slider(
-                    value: Binding(
-                        get: { Double(sectionIndex) },
-                        set: { sectionIndex = min(max(Int($0.rounded()), 0), spineURLs.count - 1) }
-                    ),
-                    in: 0...Double(max(spineURLs.count - 1, 0))
-                )
-                .disabled(spineURLs.count <= 1)
-
-                Text("\(sectionIndex + 1) / \(spineURLs.count)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: 76)
-
-                Button(action: moveForward) {
-                    Label("Next section", systemImage: "chevron.right")
-                }
-                .disabled(sectionIndex >= spineURLs.count - 1)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 17)
+                .background(theme.canvasColor)
             }
-            .labelStyle(.iconOnly)
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .padding(12)
-            .background(.bar)
+
+            readerControls
         }
         .onAppear(perform: configureGestureRouter)
         .onDisappear {
+            saveCurrentPosition()
             gestureRouter.resetHandlers()
         }
         .onChange(of: sectionIndex) { _, _ in
+            saveCurrentPosition()
+            configureGestureRouter()
+        }
+        .onChange(of: pageIndex) { _, _ in
+            saveCurrentPosition()
+            configureGestureRouter()
+        }
+        .onChange(of: pageCount) { _, _ in
             configureGestureRouter()
         }
     }
 
+    private var theme: TextReaderTheme {
+        TextReaderTheme(rawValue: themeRawValue) ?? .paper
+    }
+
+    private var appearance: TextReaderAppearance {
+        TextReaderAppearance(theme: theme, fontScale: fontScale, lineHeight: lineHeight)
+    }
+
+    private var readerPositionBadge: some View {
+        VStack {
+            HStack {
+                Text("SECTION \(sectionIndex + 1) OF \(spineURLs.count)")
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.15)
+                Spacer()
+                Text("PAGE \(pageIndex + 1) OF \(pageCount)")
+                    .font(.caption2.monospacedDigit().weight(.semibold))
+            }
+            .foregroundStyle(theme.primaryColor.opacity(0.46))
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private var readerControls: some View {
+        HStack(spacing: 14) {
+            readerNavigationButton(
+                title: "Previous page",
+                icon: "chevron.left",
+                enabled: canMoveBackward,
+                action: moveBackward
+            )
+
+            VStack(spacing: 5) {
+                ProgressView(value: overallProgress)
+                    .progressViewStyle(.linear)
+                    .tint(MobiPalette.sage)
+                HStack {
+                    Text("Section \(sectionIndex + 1) · Page \(pageIndex + 1)")
+                    Spacer()
+                    Text(overallProgress.formatted(.percent.precision(.fractionLength(0))))
+                        .monospacedDigit()
+                }
+                .font(.caption)
+                .foregroundStyle(MobiPalette.ink.opacity(0.55))
+            }
+            .frame(maxWidth: 420)
+
+            readerNavigationButton(
+                title: "Next page",
+                icon: "chevron.right",
+                enabled: canMoveForward,
+                action: moveForward
+            )
+
+            Divider().frame(height: 28)
+
+            Button {
+                showsAppearance.toggle()
+            } label: {
+                Label("Reading appearance", systemImage: "textformat")
+                    .font(.callout.weight(.semibold))
+                    .padding(.horizontal, 11)
+                    .frame(height: 34)
+                    .background(MobiPalette.cream.opacity(0.66), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(MobiPalette.ink.opacity(0.78))
+            .popover(isPresented: $showsAppearance, arrowEdge: .bottom) {
+                appearancePanel
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 11)
+        .background(MobiPalette.sidebar)
+        .overlay(alignment: .top) {
+            Rectangle().fill(MobiPalette.ink.opacity(0.08)).frame(height: 1)
+        }
+    }
+
+    private func readerNavigationButton(
+        title: String,
+        icon: String,
+        enabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .bold))
+                .frame(width: 34, height: 34)
+                .background(MobiPalette.ink.opacity(0.055), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(MobiPalette.ink.opacity(enabled ? 0.76 : 0.22))
+        .disabled(!enabled)
+        .help(title)
+        .accessibilityLabel(title)
+    }
+
+    private var appearancePanel: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Reading appearance")
+                    .font(.system(size: 18, weight: .semibold, design: .serif))
+                Text("Choose a page that feels comfortable for longer sessions.")
+                    .font(.caption)
+                    .foregroundStyle(MobiPalette.ink.opacity(0.55))
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("PAGE THEME")
+                    .font(.caption2.weight(.bold)).tracking(1)
+                    .foregroundStyle(MobiPalette.ink.opacity(0.48))
+                HStack(spacing: 9) {
+                    ForEach(TextReaderTheme.allCases) { option in
+                        Button {
+                            themeRawValue = option.rawValue
+                        } label: {
+                            VStack(spacing: 7) {
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(option.pageColor)
+                                    .frame(height: 42)
+                                    .overlay {
+                                        VStack(spacing: 4) {
+                                            Capsule().fill(option.primaryColor.opacity(0.72)).frame(width: 34, height: 2)
+                                            Capsule().fill(option.primaryColor.opacity(0.42)).frame(width: 27, height: 2)
+                                        }
+                                    }
+                                Text(option.title).font(.caption.weight(.medium))
+                            }
+                            .padding(7)
+                            .frame(width: 82)
+                            .background(
+                                theme == option ? MobiPalette.sage.opacity(0.12) : .clear,
+                                in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            )
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                    .stroke(theme == option ? MobiPalette.sage.opacity(0.55) : MobiPalette.ink.opacity(0.08), lineWidth: 1)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            appearanceSlider(
+                title: "Text size",
+                leading: "A",
+                trailing: "A",
+                value: $fontScale,
+                range: 0.86...1.32,
+                trailingScale: 1.3
+            )
+
+            appearanceSlider(
+                title: "Line spacing",
+                leading: "Tight",
+                trailing: "Airy",
+                value: $lineHeight,
+                range: 1.45...1.85
+            )
+
+            Button("Restore defaults") {
+                themeRawValue = TextReaderTheme.paper.rawValue
+                fontScale = 1.0
+                lineHeight = 1.64
+            }
+            .buttonStyle(.plain)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(MobiPalette.terracotta)
+        }
+        .foregroundStyle(MobiPalette.ink)
+        .padding(20)
+        .frame(width: 310)
+        .background(MobiPalette.paper)
+    }
+
+    private func appearanceSlider(
+        title: String,
+        leading: String,
+        trailing: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        trailingScale: Double = 1
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title.uppercased())
+                .font(.caption2.weight(.bold)).tracking(1)
+                .foregroundStyle(MobiPalette.ink.opacity(0.48))
+            HStack(spacing: 10) {
+                Text(leading).font(.caption)
+                Slider(value: value, in: range)
+                    .tint(MobiPalette.sage)
+                Text(trailing).font(.caption).scaleEffect(trailingScale)
+            }
+        }
+    }
+
+    private var overallProgress: Double {
+        let sectionProgress = Double(pageIndex + 1) / Double(max(pageCount, 1))
+        return min(max((Double(sectionIndex) + sectionProgress) / Double(max(spineURLs.count, 1)), 0), 1)
+    }
+
+    private func saveCurrentPosition() {
+        savePosition(
+            PreviewReadingPosition(sectionIndex: sectionIndex, pageIndex: pageIndex)
+        )
+    }
+
     private func moveBackward() {
-        guard sectionIndex > 0 else { return }
-        sectionIndex -= 1
+        if pageIndex > 0 {
+            pageIndex -= 1
+        } else if sectionIndex > 0 {
+            shouldOpenLastPage = true
+            pageCount = 1
+            pageIndex = 0
+            sectionIndex -= 1
+        }
     }
 
     private func moveForward() {
-        guard sectionIndex < spineURLs.count - 1 else { return }
-        sectionIndex += 1
+        if pageIndex < pageCount - 1 {
+            pageIndex += 1
+        } else if sectionIndex < spineURLs.count - 1 {
+            shouldOpenLastPage = false
+            pageCount = 1
+            pageIndex = 0
+            sectionIndex += 1
+        }
+    }
+
+    private var canMoveBackward: Bool {
+        pageIndex > 0 || sectionIndex > 0
+    }
+
+    private var canMoveForward: Bool {
+        pageIndex < pageCount - 1 || sectionIndex < spineURLs.count - 1
+    }
+
+    private func updatePageCount(_ newPageCount: Int) {
+        pageCount = max(newPageCount, 1)
+        if shouldOpenLastPage {
+            pageIndex = pageCount - 1
+            shouldOpenLastPage = false
+        } else {
+            pageIndex = min(pageIndex, pageCount - 1)
+        }
     }
 
     private func configureGestureRouter() {
-        gestureRouter.canMoveBackward = sectionIndex > 0
-        gestureRouter.canMoveForward = sectionIndex < spineURLs.count - 1
+        gestureRouter.canMoveBackward = canMoveBackward
+        gestureRouter.canMoveForward = canMoveForward
         gestureRouter.handleSwipeChanged = nil
         gestureRouter.handleSwipeEnded = nil
         gestureRouter.zoomBy = nil
@@ -1756,6 +2229,10 @@ private struct TextEpubPreview: View {
 private struct EpubWebPreview: NSViewRepresentable {
     let startURL: URL
     let readAccessURL: URL
+    let pageIndex: Int
+    let viewportSize: CGSize
+    let appearance: TextReaderAppearance
+    let onPageCountChanged: (Int) -> Void
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -1769,7 +2246,14 @@ private struct EpubWebPreview: NSViewRepresentable {
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {
-        context.coordinator.load(startURL, readAccessURL: readAccessURL)
+        context.coordinator.update(
+            startURL: startURL,
+            readAccessURL: readAccessURL,
+            pageIndex: pageIndex,
+            viewportSize: viewportSize,
+            appearance: appearance,
+            onPageCountChanged: onPageCountChanged
+        )
     }
 
     func makeCoordinator() -> Coordinator {
@@ -1781,6 +2265,11 @@ private struct EpubWebPreview: NSViewRepresentable {
         private var isNetworkBlockingReady = false
         private var pendingLoad: (startURL: URL, readAccessURL: URL)?
         private var allowedRootURL: URL?
+        private var loadedURL: URL?
+        private var requestedPageIndex = 0
+        private var viewportSize = CGSize.zero
+        private var appearance = TextReaderAppearance(theme: .paper, fontScale: 1, lineHeight: 1.64)
+        private var onPageCountChanged: ((Int) -> Void)?
 
         func prepare(_ webView: WKWebView) {
             self.webView = webView
@@ -1796,13 +2285,34 @@ private struct EpubWebPreview: NSViewRepresentable {
             }
         }
 
-        func load(_ startURL: URL, readAccessURL: URL) {
+        func update(
+            startURL: URL,
+            readAccessURL: URL,
+            pageIndex: Int,
+            viewportSize: CGSize,
+            appearance: TextReaderAppearance,
+            onPageCountChanged: @escaping (Int) -> Void
+        ) {
             guard EpubPathSecurity.contains(startURL, in: readAccessURL) else {
                 webView?.stopLoading()
                 return
             }
+            let viewportChanged = abs(self.viewportSize.width - viewportSize.width) > 1
+                || abs(self.viewportSize.height - viewportSize.height) > 1
+            let appearanceChanged = self.appearance != appearance
             allowedRootURL = readAccessURL
-            pendingLoad = (startURL, readAccessURL)
+            requestedPageIndex = max(pageIndex, 0)
+            self.viewportSize = viewportSize
+            self.appearance = appearance
+            self.onPageCountChanged = onPageCountChanged
+            if loadedURL != startURL {
+                loadedURL = startURL
+                pendingLoad = (startURL, readAccessURL)
+            } else if viewportChanged || appearanceChanged {
+                installPagination(in: webView)
+            } else {
+                showRequestedPage(in: webView)
+            }
             performPendingLoadIfPossible()
         }
 
@@ -1811,12 +2321,196 @@ private struct EpubWebPreview: NSViewRepresentable {
                 isNetworkBlockingReady,
                 let webView,
                 let pendingLoad,
-                webView.url != pendingLoad.startURL
+                loadedURL == pendingLoad.startURL
             else {
                 return
             }
             self.pendingLoad = nil
             webView.loadFileURL(pendingLoad.startURL, allowingReadAccessTo: pendingLoad.readAccessURL)
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            installPagination(in: webView)
+        }
+
+        private func installPagination(in webView: WKWebView?) {
+            guard let webView else { return }
+            let theme = appearance.theme
+            let fontSize = 18 * min(max(appearance.fontScale, 0.86), 1.32)
+            let lineHeight = min(max(appearance.lineHeight, 1.45), 1.85)
+            let script = #"""
+            (() => {
+              const styleID = 'mobiverse-pagination-style';
+              let style = document.getElementById(styleID);
+              if (!style) {
+                style = document.createElement('style');
+                style.id = styleID;
+                document.head.appendChild(style);
+              }
+              style.textContent = `
+                html, body {
+                  width: 100% !important;
+                  height: 100% !important;
+                  min-height: 100% !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  overflow: hidden !important;
+                  background: \#(theme.cssPageColor) !important;
+                  color: \#(theme.cssInkColor) !important;
+                }
+                #mobiverse-reader-pages {
+                  box-sizing: border-box !important;
+                  width: 100vw !important;
+                  height: 100vh !important;
+                  padding: clamp(28px, 5vh, 56px) var(--mobiverse-page-side) !important;
+                  overflow: visible !important;
+                  column-width: calc(100vw - (2 * var(--mobiverse-page-side))) !important;
+                  column-gap: calc(2 * var(--mobiverse-page-side)) !important;
+                  column-fill: auto !important;
+                  transform: translateX(calc(-1 * var(--mobiverse-page-index) * 100vw));
+                  transition: transform 180ms ease-out;
+                  color: \#(theme.cssInkColor) !important;
+                  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif !important;
+                  font-size: \#(fontSize)px !important;
+                  font-weight: 400 !important;
+                  line-height: \#(lineHeight) !important;
+                  letter-spacing: 0.008em !important;
+                  text-rendering: optimizeLegibility;
+                  -webkit-font-smoothing: antialiased;
+                  font-kerning: normal;
+                  hyphens: auto;
+                }
+                #mobiverse-reader-pages p,
+                #mobiverse-reader-pages li,
+                #mobiverse-reader-pages blockquote {
+                  color: \#(theme.cssInkColor) !important;
+                  font-family: inherit !important;
+                  font-size: 1em !important;
+                  line-height: inherit !important;
+                  orphans: 3;
+                  widows: 3;
+                }
+                #mobiverse-reader-pages p {
+                  margin-top: 0 !important;
+                  margin-bottom: 0 !important;
+                  text-indent: 1.35em !important;
+                }
+                #mobiverse-reader-pages h1 + p,
+                #mobiverse-reader-pages h2 + p,
+                #mobiverse-reader-pages h3 + p,
+                #mobiverse-reader-pages .COTX,
+                #mobiverse-reader-pages .first,
+                #mobiverse-reader-pages .noindent,
+                #mobiverse-reader-pages p:first-child {
+                  text-indent: 0 !important;
+                }
+                #mobiverse-reader-pages h1,
+                #mobiverse-reader-pages h2,
+                #mobiverse-reader-pages h3,
+                #mobiverse-reader-pages h4 {
+                  color: \#(theme.cssInkColor) !important;
+                  font-family: "Iowan Old Style", Palatino, Georgia, serif !important;
+                  font-weight: 600 !important;
+                  text-wrap: balance;
+                  break-after: avoid;
+                }
+                #mobiverse-reader-pages h1.chapter-number {
+                  color: \#(theme.cssAccentColor) !important;
+                  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
+                  font-size: 0.78em !important;
+                  font-weight: 700 !important;
+                  letter-spacing: 0.18em !important;
+                  margin-top: 7vh !important;
+                  margin-bottom: 0.7em !important;
+                }
+                #mobiverse-reader-pages h1.chapter-title {
+                  font-size: 1.82em !important;
+                  letter-spacing: 0.045em !important;
+                  line-height: 1.16 !important;
+                  margin-top: 0 !important;
+                  margin-bottom: 1.65em !important;
+                }
+                #mobiverse-reader-pages blockquote {
+                  color: \#(theme.cssMutedColor) !important;
+                  border-left: 2px solid \#(theme.cssAccentColor) !important;
+                  margin: 1.1em 1.5em !important;
+                  padding-left: 1em !important;
+                }
+                #mobiverse-reader-pages a {
+                  color: \#(theme.cssAccentColor) !important;
+                  text-decoration-thickness: 0.06em;
+                  text-underline-offset: 0.15em;
+                }
+                #mobiverse-reader-pages [role="doc-pagebreak"] {
+                  display: none !important;
+                }
+                #mobiverse-reader-pages hr {
+                  width: 24% !important;
+                  margin: 1.5em auto !important;
+                  border: 0 !important;
+                  border-top: 1px solid \#(theme.cssMutedColor) !important;
+                  opacity: 0.45;
+                }
+                #mobiverse-reader-pages img,
+                #mobiverse-reader-pages svg {
+                  display: block !important;
+                  margin-left: auto !important;
+                  margin-right: auto !important;
+                  max-width: calc(100vw - (2 * var(--mobiverse-page-side))) !important;
+                  max-height: calc(100vh - clamp(56px, 10vh, 112px)) !important;
+                  object-fit: contain !important;
+                  break-inside: avoid !important;
+                }
+                #mobiverse-reader-pages figure,
+                #mobiverse-reader-pages .media-rw,
+                #mobiverse-reader-pages .image-rw,
+                #mobiverse-reader-pages p.img {
+                  text-align: center !important;
+                  margin-left: auto !important;
+                  margin-right: auto !important;
+                  break-inside: avoid !important;
+                }
+                #mobiverse-reader-pages pre,
+                #mobiverse-reader-pages table {
+                  max-width: 100% !important;
+                  overflow-wrap: anywhere !important;
+                }
+              `;
+              let pages = document.getElementById('mobiverse-reader-pages');
+              if (!pages) {
+                pages = document.createElement('div');
+                pages.id = 'mobiverse-reader-pages';
+                const nodes = Array.from(document.body.childNodes).filter(node => node !== style);
+                nodes.forEach(node => pages.appendChild(node));
+                document.body.appendChild(pages);
+              }
+              const pageWidth = Math.min(760, Math.max(360, window.innerWidth - 96));
+              const side = Math.max(48, (window.innerWidth - pageWidth) / 2);
+              pages.style.setProperty('--mobiverse-page-side', `${side}px`);
+              pages.style.setProperty('--mobiverse-page-index', '0');
+              const count = Math.max(1, Math.ceil((pages.scrollWidth - 1) / Math.max(window.innerWidth, 1)));
+              window.__mobiversePageCount = count;
+              window.__mobiverseSetPage = index => {
+                const safeIndex = Math.max(0, Math.min(Number(index) || 0, count - 1));
+                pages.style.setProperty('--mobiverse-page-index', String(safeIndex));
+                return safeIndex;
+              };
+              return count;
+            })();
+            """#
+            webView.evaluateJavaScript(script) { [weak self, weak webView] result, _ in
+                guard let self else { return }
+                let count = max((result as? NSNumber)?.intValue ?? 1, 1)
+                DispatchQueue.main.async {
+                    self.onPageCountChanged?(count)
+                    self.showRequestedPage(in: webView)
+                }
+            }
+        }
+
+        private func showRequestedPage(in webView: WKWebView?) {
+            guard let webView else { return }
+            webView.evaluateJavaScript("window.__mobiverseSetPage?.(\(requestedPageIndex));")
         }
 
         @MainActor

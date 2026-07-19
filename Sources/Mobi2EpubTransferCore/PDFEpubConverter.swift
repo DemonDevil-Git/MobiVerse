@@ -19,6 +19,7 @@ struct PDFEpubConverter {
     func convert(
         inputURL: URL,
         outputURL: URL,
+        readingDirection: EpubReadingDirection,
         progressHandler: ConversionProgressHandler?
     ) async throws -> ConversionRunResult {
         let workingDirectory = fileManager.temporaryDirectory
@@ -59,7 +60,8 @@ struct PDFEpubConverter {
         let postProcessResult = try await ComicEpubPostProcessor(runner: runner).buildFixedLayoutEPUB(
             title: renderResult.title,
             imageFiles: renderResult.imageURLs,
-            outputURL: outputURL
+            outputURL: outputURL,
+            readingDirection: readingDirection
         )
 
         progressHandler?(

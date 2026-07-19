@@ -1,7 +1,7 @@
 import Foundation
 import ImageIO
 
-public enum EpubReadingDirection: String, Equatable, Sendable {
+public enum EpubReadingDirection: String, Codable, Equatable, Sendable {
     case leftToRight
     case rightToLeft
 }
@@ -80,15 +80,18 @@ public struct EpubPreviewParser {
         let direction = opf.contains(#"page-progression-direction="rtl""#) ? EpubReadingDirection.rightToLeft : .leftToRight
 
         let spineItems = spineIDs.compactMap { manifest[$0] }
-        let imagePages = imagePreviewPages(from: spineItems, packageDirectory: packageDirectory)
-        if imagePages.count >= 2, imagePages.count >= max(1, spineItems.count * 4 / 5) {
+        let imagePreview = imagePreviewPages(from: spineItems, packageDirectory: packageDirectory)
+        if
+            imagePreview.pages.count >= 2,
+            imagePreview.imageOnlySpineCount * 5 >= max(1, spineItems.count * 4)
+        {
             return EpubPreviewBook(
                 title: title,
                 epubURL: epubURL,
                 extractionDirectory: extractionDirectory,
                 contentRootDirectory: packageDirectory,
                 readingDirection: direction,
-                mode: .imagePages(imagePages)
+                mode: .imagePages(imagePreview.pages)
             )
         }
 
@@ -168,25 +171,37 @@ public struct EpubPreviewParser {
         tags(matching: #"<itemref\b[^>]*>"#, in: opf).compactMap { attribute("idref", in: $0) }
     }
 
-    private func imagePreviewPages(from spineItems: [ManifestItem], packageDirectory: URL) -> [EpubImagePreviewPage] {
-        spineItems.enumerated().compactMap { index, item in
+    private func imagePreviewPages(
+        from spineItems: [ManifestItem],
+        packageDirectory: URL
+    ) -> (pages: [EpubImagePreviewPage], imageOnlySpineCount: Int) {
+        var imageOnlySpineCount = 0
+        let imageURLs = spineItems.flatMap { item -> [URL] in
             guard let itemURL = EpubPathSecurity.resolve(
                 item.href,
                 relativeTo: packageDirectory,
                 containedIn: packageDirectory
             ) else {
-                return nil
+                return []
             }
-            let imageURL: URL?
             if item.mediaType.hasPrefix("image/") {
-                imageURL = itemURL
+                imageOnlySpineCount += 1
+                return [itemURL]
             } else if item.mediaType.contains("xhtml") || item.mediaType.contains("html") {
-                imageURL = imageURLReferencedByImageOnlyXHTML(at: itemURL)
-            } else {
-                imageURL = nil
+                let urls = imageURLsReferencedByImageOnlyXHTML(
+                    at: itemURL,
+                    packageDirectory: packageDirectory
+                )
+                if !urls.isEmpty {
+                    imageOnlySpineCount += 1
+                }
+                return urls
             }
+            return []
+        }
 
-            guard let imageURL, fileManager.fileExists(atPath: imageURL.path) else {
+        let pages: [EpubImagePreviewPage] = imageURLs.enumerated().compactMap { index, imageURL in
+            guard fileManager.fileExists(atPath: imageURL.path) else {
                 return nil
             }
             let dimensions = imageDimensions(at: imageURL) ?? (width: 1200, height: 1800)
@@ -199,34 +214,29 @@ public struct EpubPreviewParser {
                 height: dimensions.height
             )
         }
+        return (pages, imageOnlySpineCount)
     }
 
-    private func imageURLReferencedByImageOnlyXHTML(at htmlURL: URL) -> URL? {
+    private func imageURLsReferencedByImageOnlyXHTML(
+        at htmlURL: URL,
+        packageDirectory: URL
+    ) -> [URL] {
         guard let data = try? Data(contentsOf: htmlURL) else {
-            return nil
+            return []
         }
         let inspector = XHTMLImagePageInspector()
         let parser = XMLParser(data: data)
         parser.delegate = inspector
-        guard parser.parse(), let reference = inspector.imageOnlyReference else {
-            return nil
+        guard parser.parse() else {
+            return []
         }
-        return EpubPathSecurity.resolve(
-            decodeXML(reference),
-            relativeTo: htmlURL.deletingLastPathComponent(),
-            containedIn: packageRoot(for: htmlURL)
-        )
-    }
-
-    private func packageRoot(for url: URL) -> URL {
-        var current = url.deletingLastPathComponent()
-        while current.pathComponents.count > 1 {
-            if fileManager.fileExists(atPath: current.appendingPathComponent("content.opf").path) {
-                return current
-            }
-            current.deleteLastPathComponent()
+        return inspector.imageOnlyReferences.compactMap { reference in
+            EpubPathSecurity.resolve(
+                decodeXML(reference),
+                relativeTo: htmlURL.deletingLastPathComponent(),
+                containedIn: packageDirectory
+            )
         }
-        return url.deletingLastPathComponent()
     }
 
     private func imageDimensions(at url: URL) -> (width: Int, height: Int)? {
@@ -292,15 +302,14 @@ private final class XHTMLImagePageInspector: NSObject, XMLParserDelegate {
     private var imageReferences: [String] = []
     private var visibleText = ""
 
-    var imageOnlyReference: String? {
+    var imageOnlyReferences: [String] {
         guard
-            imageReferences.count == 1,
             visibleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-            !imageReferences[0].hasPrefix("data:")
+            !imageReferences.isEmpty
         else {
-            return nil
+            return []
         }
-        return imageReferences[0]
+        return imageReferences.filter { !$0.lowercased().hasPrefix("data:") }
     }
 
     func parser(
