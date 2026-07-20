@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.0.dmg"><img src="https://img.shields.io/badge/macOS%202.3.0-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse 2.3.0 macOS 版"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.1.dmg"><img src="https://img.shields.io/badge/macOS%202.3.1-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse 2.3.1 macOS 版"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.2.0-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="下载 MobiVerse 2.2.0 Windows 版"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC" alt="最新版本"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
@@ -89,16 +89,16 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 
 ### macOS
 
-1. 下载最新 DMG：[MobiVerse-2.3.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.0.dmg)。
-2. 打开 `MobiVerse-2.3.0.dmg`。
+1. 下载最新 DMG：[MobiVerse-2.3.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.1.dmg)。
+2. 打开 `MobiVerse-2.3.1.dmg`。
 3. 将 `MobiVerse.app` 拖入 `Applications`；系统提示时替换旧版本。
 4. 启动 MobiVerse，把支持的文件拖入窗口，或在 Finder 中选择用 MobiVerse 打开。
 
-当前 macOS 版本为 MobiVerse 2.3.0 (11)，仅支持 Apple Silicon（`arm64`）。
+当前 macOS 版本为 MobiVerse 2.3.1 (12)，仅支持 Apple Silicon（`arm64`）。
 
 ### Windows 11 ARM64
 
-当前 Windows 版本仍为 2.2.0。下载并运行 [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe)。安装包包含通过 Windows 11 ARM64 仿真运行的 x64 MobiVerse 与 Calibre 组件，以及原生 ARM64 WebView2 运行时。MobiVerse 2.3.0 目前仅更新 macOS 版本。
+当前 Windows 版本仍为 2.2.0。下载并运行 [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe)。安装包包含通过 Windows 11 ARM64 仿真运行的 x64 MobiVerse 与 Calibre 组件，以及原生 ARM64 WebView2 运行时。MobiVerse 2.3.1 目前仅更新 macOS 版本。
 
 转换后的 EPUB 会保存到原文件旁边，并避免覆盖已有 EPUB。
 
@@ -122,6 +122,14 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 EPUB 内部文件引用会被限制在书籍解包目录中。文本预览会禁用书籍自带 JavaScript、阻止远程网络资源、限制页面导航，并使用非持久化 WebView 存储。
 
 PDF 转换会把每一页按原始视觉效果保存为固定布局图像，因此 PDF 中可选择的文字、链接、批注和表单不会保留到 EPUB 中。
+
+## 2.3.1 新增内容
+
+- 修复浏览器下载确认后，SwiftUI 导入审核列表可能因生命周期竞态发生闪退的问题。
+- 修复漫画 AZW3 转换后的 EPUB 校验：写入必需的修改时间，在 manifest 页面项目上保留 SVG 声明，并从 spine 项目引用中移除无效 SVG 属性。
+- Browse 打开的 PDF 响应现在默认进入下载流程，不再被 WebKit 内置 PDF 阅读器接管；支持没有 `.pdf` 后缀的临时签名链接，同时不会误拦截网页内嵌 PDF。
+- 新增持久化 PDF 链接设置，可选择自动下载或在浏览器中预览。
+- 新增专项回归测试；当前 14 个测试套件共 49 项测试全部通过。
 
 ## 2.3.0 新增内容
 
@@ -238,7 +246,7 @@ scripts/package-dmg.sh
 生成的安装镜像位于：
 
 ```text
-.build/MobiVerse-2.3.0.dmg
+.build/MobiVerse-2.3.1.dmg
 ```
 
 默认开发构建使用 ad-hoc 签名，适合本地测试；但从互联网下载后会被 macOS Gatekeeper 拦截。

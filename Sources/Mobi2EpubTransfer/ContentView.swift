@@ -19,6 +19,7 @@ struct ContentView: View {
     @State private var taskLayout = TaskLayout.grid
     @State private var workspace = AppWorkspace.library
     @State private var isImportReviewPresented = false
+    @State private var shouldClearImportReviewOnDismiss = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -72,7 +73,11 @@ struct ContentView: View {
                 Task { await analyzeImports(urls, source: .filePicker) }
             }
         }
-        .sheet(isPresented: $isImportReviewPresented) {
+        .sheet(isPresented: $isImportReviewPresented, onDismiss: {
+            guard shouldClearImportReviewOnDismiss else { return }
+            shouldClearImportReviewOnDismiss = false
+            importReview.removeAll()
+        }) {
             ImportReviewSheet(coordinator: importReview) {
                 isImportReviewPresented = false
             } onConfirm: { items in
@@ -440,7 +445,7 @@ struct ContentView: View {
         if let firstEPUB = epubs.first?.url {
             openEpubPreview(firstEPUB)
         }
-        importReview.removeAll()
+        shouldClearImportReviewOnDismiss = true
         isImportReviewPresented = false
         workspace = .library
     }

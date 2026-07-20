@@ -344,7 +344,7 @@ public struct ComicEpubPostProcessor {
             #"    <item id="\#(page.id)" href="pages/\#(page.htmlFileName)" media-type="application/xhtml+xml" properties="svg"/>"#
         }.joined(separator: "\n")
         let spineItems = pages.map { page in
-            #"    <itemref idref="\#(page.id)" properties="rendition:layout-pre-paginated svg"/>"#
+            #"    <itemref idref="\#(page.id)" properties="rendition:layout-pre-paginated"/>"#
         }.joined(separator: "\n")
         let progression = readingDirection == .rightToLeft ? "rtl" : "ltr"
         let writingMode = readingDirection == .rightToLeft ? "vertical-rl" : "horizontal-lr"
@@ -359,6 +359,7 @@ public struct ComicEpubPostProcessor {
             <dc:identifier id="book-id">urn:uuid:\(UUID().uuidString)</dc:identifier>
             <dc:title>\(escapeXML(title))</dc:title>
             <dc:language>\(language)</dc:language>
+            <meta property="dcterms:modified">\(modifiedTimestamp())</meta>
             <meta property="rendition:layout">pre-paginated</meta>
             <meta property="rendition:orientation">auto</meta>
             <meta property="rendition:spread">none</meta>
@@ -532,6 +533,12 @@ public struct ComicEpubPostProcessor {
     private func rewriteOPF(at url: URL) throws -> OPFRewriteResult {
         var opf = try String(contentsOf: url, encoding: .utf8)
         opf = rewritePackageTagForFixedLayout(opf)
+        if !opf.contains(#"property="dcterms:modified""#) {
+            opf = opf.replacingOccurrences(
+                of: "</metadata>",
+                with: #"    <meta property="dcterms:modified">\#(modifiedTimestamp())</meta>"# + "\n  </metadata>"
+            )
+        }
         if opf.contains("primary-writing-mode") {
             opf = opf.replacingOccurrences(
                 of: #"<meta name="primary-writing-mode" content="[^"]*"\s*/>"#,
@@ -618,7 +625,8 @@ public struct ComicEpubPostProcessor {
         for match in matches.reversed() {
             guard let range = Range(match.range, in: rewritten) else { continue }
             var itemref = String(rewritten[range])
-            let requiredProperties = ["rendition:layout-pre-paginated", "svg"]
+            itemref = removingProperty("svg", fromAttributesIn: itemref)
+            let requiredProperties = ["rendition:layout-pre-paginated"]
             if itemref.contains("properties=") {
                 for property in requiredProperties where !itemref.contains(property) {
                     itemref = itemref.replacingOccurrences(
@@ -630,12 +638,35 @@ public struct ComicEpubPostProcessor {
             } else {
                 itemref = itemref.replacingOccurrences(
                     of: "/>",
-                    with: #" properties="rendition:layout-pre-paginated svg"/>"#
+                    with: #" properties="rendition:layout-pre-paginated"/>"#
                 )
             }
             rewritten.replaceSubrange(range, with: itemref)
         }
         return rewritten
+    }
+
+    private func removingProperty(_ property: String, fromAttributesIn opf: String) -> String {
+        guard let regex = try? NSRegularExpression(pattern: #"properties="([^"]*)""#) else {
+            return opf
+        }
+        let matches = regex.matches(in: opf, range: NSRange(opf.startIndex..<opf.endIndex, in: opf))
+        var rewritten = opf
+        for match in matches.reversed() {
+            guard
+                let range = Range(match.range, in: rewritten),
+                let valuesRange = Range(match.range(at: 1), in: rewritten)
+            else { continue }
+            let values = rewritten[valuesRange].split(whereSeparator: \.isWhitespace).map(String.init)
+            let filtered = values.filter { $0 != property }
+            let replacement = filtered.isEmpty ? "" : #"properties="\#(filtered.joined(separator: " "))""#
+            rewritten.replaceSubrange(range, with: replacement)
+        }
+        return rewritten
+    }
+
+    private func modifiedTimestamp() -> String {
+        ISO8601DateFormatter().string(from: Date())
     }
 
     private func rewriteNCX(at url: URL, title: String, htmlFiles: [URL]) throws -> Int {

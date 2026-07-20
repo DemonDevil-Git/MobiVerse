@@ -82,9 +82,10 @@ final class ImportReviewCoordinator: ObservableObject {
         }
     }
 
-    func binding(for id: UUID) -> Binding<PendingImport> {
-        Binding {
-            self.items.first(where: { $0.id == id })!
+    func binding(for item: PendingImport) -> Binding<PendingImport> {
+        let id = item.id
+        return Binding {
+            self.items.first(where: { $0.id == id }) ?? item
         } set: { value in
             guard let index = self.items.firstIndex(where: { $0.id == id }) else { return }
             self.items[index] = value
@@ -132,7 +133,7 @@ struct ImportReviewSheet: View {
             ScrollView {
                 LazyVStack(spacing: 12) {
                     ForEach(coordinator.items) { item in
-                        ImportReviewRow(item: coordinator.binding(for: item.id))
+                        ImportReviewRow(item: coordinator.binding(for: item))
                     }
                 }
             }

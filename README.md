@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.0.dmg"><img src="https://img.shields.io/badge/macOS%202.3.0-Download-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse 2.3.0 for macOS"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.1.dmg"><img src="https://img.shields.io/badge/macOS%202.3.1-Download-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse 2.3.1 for macOS"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.2.0-Download-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="Download MobiVerse 2.2.0 for Windows"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=Latest%20release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
@@ -89,16 +89,16 @@ MobiVerse does not remove DRM. Protected or unreadable files are reported clearl
 
 ### macOS
 
-1. Download the latest DMG: [MobiVerse-2.3.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.0.dmg).
-2. Open `MobiVerse-2.3.0.dmg`.
+1. Download the latest DMG: [MobiVerse-2.3.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.1.dmg).
+2. Open `MobiVerse-2.3.1.dmg`.
 3. Drag `MobiVerse.app` into `Applications`, replacing the previous version when prompted.
 4. Launch MobiVerse and drop supported files into the window, or open supported files with MobiVerse from Finder.
 
-The current macOS release is MobiVerse 2.3.0 (11) for Apple Silicon (`arm64`) only.
+The current macOS release is MobiVerse 2.3.1 (12) for Apple Silicon (`arm64`) only.
 
 ### Windows 11 ARM64
 
-The current Windows release remains 2.2.0. Download and run [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe). The package includes the x64 MobiVerse and Calibre components used through Windows 11 ARM64 emulation, plus the native ARM64 WebView2 runtime. MobiVerse 2.3.0 is currently a macOS-only update.
+The current Windows release remains 2.2.0. Download and run [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe). The package includes the x64 MobiVerse and Calibre components used through Windows 11 ARM64 emulation, plus the native ARM64 WebView2 runtime. MobiVerse 2.3.1 is currently a macOS-only update.
 
 Converted EPUB files are written next to the original source file without overwriting existing EPUBs.
 
@@ -122,6 +122,14 @@ Opening an EPUB directly also adds it to the local library, extracts its cover t
 EPUB file references are confined to the extracted book directory. Text previews disable book-provided JavaScript, block remote web resources, restrict navigation, and use non-persistent WebView storage.
 
 PDF conversion preserves each page visually as a fixed-layout image. Selectable PDF text, links, annotations, and forms are not retained in the EPUB output.
+
+## What's New in 2.3.1
+
+- Fixed a SwiftUI import-review race that could crash after confirming a browser download.
+- Fixed comic AZW3 conversion validation by writing the required EPUB modification timestamp, keeping SVG declarations on manifest items, and removing invalid SVG properties from spine item references.
+- PDF responses opened from Browse now download automatically instead of being captured by WebKit's inline PDF viewer. Signed URLs without a `.pdf` suffix are supported, while embedded PDF frames remain viewable.
+- Added a persistent Browse setting for choosing automatic PDF downloads or in-browser preview.
+- Added focused regression coverage; 49 automated tests now pass across 14 suites.
 
 ## What's New in 2.3.0
 
@@ -238,7 +246,7 @@ scripts/package-dmg.sh
 The generated installer image is written to:
 
 ```text
-.build/MobiVerse-2.3.0.dmg
+.build/MobiVerse-2.3.1.dmg
 ```
 
 Development builds use ad-hoc signing by default. They are suitable for local testing, but macOS Gatekeeper will block them after download from the internet.

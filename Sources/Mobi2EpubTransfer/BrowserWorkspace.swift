@@ -344,12 +344,16 @@ final class BrowserDownloadManager: NSObject, ObservableObject, WKDownloadDelega
 struct BrowserWorkspace: View {
     @ObservedObject var tabs: BrowserTabStore
     @ObservedObject var downloads: BrowserDownloadManager
+    @AppStorage(BrowserPDFHandling.storageKey) private var pdfHandlingRawValue = BrowserPDFHandling.download.rawValue
     @State private var bookmarks: [BrowserBookmark] = Self.loadBookmarks()
     @State private var showsDownloads = true
     @State private var showsSettings = false
     let onBookDownloaded: (URL) -> Void
 
     private var model: BrowserModel { tabs.active }
+    private var pdfHandling: BrowserPDFHandling {
+        BrowserPDFHandling(rawValue: pdfHandlingRawValue) ?? .download
+    }
     private var addressBinding: Binding<String> {
         Binding(get: { model.address }, set: { model.address = $0 })
     }
@@ -363,7 +367,11 @@ struct BrowserWorkspace: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
             ZStack {
-                BrowserWebView(model: model, downloads: downloads)
+                BrowserWebView(
+                    model: model,
+                    downloads: downloads,
+                    automaticallyDownloadsPDFs: pdfHandling == .download
+                )
                 if model.showsHome { homePage }
             }
             if showsDownloads { downloadShelf }
@@ -373,7 +381,11 @@ struct BrowserWorkspace: View {
         .animation(.easeInOut(duration: 0.18), value: bookmarks)
         .onAppear { downloads.onValidatedBook = onBookDownloaded }
         .sheet(isPresented: $showsSettings) {
-            BrowserSettingsView(bookmarks: $bookmarks, downloads: downloads) {
+            BrowserSettingsView(
+                bookmarks: $bookmarks,
+                downloads: downloads,
+                pdfHandlingRawValue: $pdfHandlingRawValue
+            ) {
                 saveBookmarks()
             }
         }
@@ -656,8 +668,15 @@ struct BrowserWorkspace: View {
 private struct BrowserWebView: NSViewRepresentable {
     @ObservedObject var model: BrowserModel
     @ObservedObject var downloads: BrowserDownloadManager
+    let automaticallyDownloadsPDFs: Bool
 
-    func makeCoordinator() -> Coordinator { Coordinator(model: model, downloads: downloads) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(
+            model: model,
+            downloads: downloads,
+            automaticallyDownloadsPDFs: automaticallyDownloadsPDFs
+        )
+    }
     func makeNSView(context: Context) -> WKWebView {
         if let view = model.webView {
             view.navigationDelegate = context.coordinator
@@ -673,12 +692,19 @@ private struct BrowserWebView: NSViewRepresentable {
         model.webView = view
         return view
     }
-    func updateNSView(_ view: WKWebView, context: Context) { }
+    func updateNSView(_ view: WKWebView, context: Context) {
+        context.coordinator.automaticallyDownloadsPDFs = automaticallyDownloadsPDFs
+    }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         let model: BrowserModel
         let downloads: BrowserDownloadManager
-        init(model: BrowserModel, downloads: BrowserDownloadManager) { self.model = model; self.downloads = downloads }
+        var automaticallyDownloadsPDFs: Bool
+        init(model: BrowserModel, downloads: BrowserDownloadManager, automaticallyDownloadsPDFs: Bool) {
+            self.model = model
+            self.downloads = downloads
+            self.automaticallyDownloadsPDFs = automaticallyDownloadsPDFs
+        }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) { model.sync(from: webView) }
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { model.sync(from: webView) }
@@ -702,7 +728,20 @@ private struct BrowserWebView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping @MainActor (WKNavigationResponsePolicy) -> Void) {
-            decisionHandler(navigationResponse.canShowMIMEType ? .allow : .download)
+            let response = navigationResponse.response
+            let info = BrowserNavigationResponseInfo(
+                url: response.url,
+                mimeType: response.mimeType,
+                suggestedFilename: response.suggestedFilename,
+                contentDisposition: (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition"),
+                isForMainFrame: navigationResponse.isForMainFrame,
+                canShowMIMEType: navigationResponse.canShowMIMEType
+            )
+            let shouldDownload = BrowserDownloadPolicy.shouldDownload(
+                info,
+                automaticallyDownloadsPDFs: automaticallyDownloadsPDFs
+            )
+            decisionHandler(shouldDownload ? .download : .allow)
         }
 
         func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) { download.delegate = downloads }
@@ -718,6 +757,7 @@ private struct BrowserWebView: NSViewRepresentable {
 private struct BrowserSettingsView: View {
     @Binding var bookmarks: [BrowserBookmark]
     @ObservedObject var downloads: BrowserDownloadManager
+    @Binding var pdfHandlingRawValue: String
     let onSave: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var showsClearConfirmation = false
@@ -903,6 +943,24 @@ private struct BrowserSettingsView: View {
                     .buttonStyle(.borderless)
                     .foregroundStyle(BrowserPalette.cobalt)
                 }
+
+                Divider().overlay(BrowserPalette.ink.opacity(0.08))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("PDF links")
+                        .font(.callout.weight(.semibold))
+                    Picker("PDF links", selection: $pdfHandlingRawValue) {
+                        ForEach(BrowserPDFHandling.allCases) { handling in
+                            Text(handling.title).tag(handling.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    Text("Automatic downloads keep the current website session and send verified PDFs directly to import review.")
+                        .font(.caption)
+                        .foregroundStyle(BrowserPalette.ink.opacity(0.56))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
@@ -1038,6 +1096,21 @@ private struct BrowserSettingsView: View {
             Task { @MainActor in
                 privacyMessage = "Browser data cleared. Your books and bookmarks are safe."
             }
+        }
+    }
+}
+
+private enum BrowserPDFHandling: String, CaseIterable, Identifiable {
+    static let storageKey = "MobiVerseBrowserPDFHandling"
+
+    case download
+    case preview
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .download: "Download automatically"
+        case .preview: "Preview in browser"
         }
     }
 }
