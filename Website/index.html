@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f2e8">
+  <meta name="description" content="MobiVerse 是一款本地优先的 macOS 与 Windows 阅读转换工具，把 Kindle 电子书、漫画压缩包和 PDF 漫画转换成精致 EPUB。">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://mobiverse-coral.vercel.app/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MobiVerse">
+  <meta property="og:title" content="MobiVerse — 本地电子书与漫画转换工具">
+  <meta property="og:description" content="在本机把 MOBI、AZW3、CBZ、CBR 和 PDF 转换成适合 Apple Books 与现代阅读器的 EPUB。">
+  <meta property="og:url" content="https://mobiverse-coral.vercel.app/">
+  <meta property="og:image" content="https://mobiverse-coral.vercel.app/assets/product-showcase-refined.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="MobiVerse — Local ebook and comic converter">
+  <meta name="twitter:description" content="Convert Kindle books, comic archives, and PDF comics into polished EPUBs without uploading your files.">
+  <meta name="twitter:image" content="https://mobiverse-coral.vercel.app/assets/product-showcase-refined.png">
+  <title>MobiVerse — 本地电子书与漫画转换工具</title>
+  <link rel="icon" href="assets/mobiverse-icon.png">
+  <link rel="alternate" type="text/plain" href="/llms.txt" title="MobiVerse LLM information">
+  <link rel="stylesheet" href="styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://mobiverse-coral.vercel.app/#website",
+        "url": "https://mobiverse-coral.vercel.app/",
+        "name": "MobiVerse",
+        "inLanguage": ["zh-CN", "en"]
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://mobiverse-coral.vercel.app/#software",
+        "name": "MobiVerse",
+        "alternateName": "MobiVerse ebook and comic converter",
+        "url": "https://mobiverse-coral.vercel.app/",
+        "downloadUrl": "https://mobiverse-coral.vercel.app/download/",
+        "softwareVersion": "2.3.1",
+        "releaseNotes": "https://github.com/DemonDevil-Git/MobiVerse/releases/latest",
+        "applicationCategory": "UtilitiesApplication",
+        "applicationSubCategory": "Ebook and comic converter",
+        "operatingSystem": "macOS 14 or later; Windows 11 ARM64",
+        "isAccessibleForFree": true,
+        "description": "MobiVerse is a local-first ebook and comic converter that turns DRM-free MOBI, AZW, AZW3, CBZ, CBR, ZIP, and PDF files into polished EPUB 3 books for Apple Books and modern EPUB readers.",
+        "featureList": [
+          "Local-only ebook conversion",
+          "MOBI and AZW3 to EPUB conversion",
+          "CBZ and CBR comic archive conversion",
+          "PDF comic to fixed-layout EPUB conversion",
+          "Apple Books-friendly comic page repair",
+          "Built-in EPUB preview",
+          "Batch conversion and history"
+        ],
+        "screenshot": [
+          "https://mobiverse-coral.vercel.app/assets/product-showcase-refined.png",
+          "https://mobiverse-coral.vercel.app/assets/apple-books-comparison.svg"
+        ],
+        "image": "https://mobiverse-coral.vercel.app/assets/mobiverse-icon.png",
+        "sameAs": [
+          "https://github.com/DemonDevil-Git/MobiVerse"
+        ],
+        "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD",
+          "availability": "https://schema.org/InStock"
+        }
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://mobiverse-coral.vercel.app/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "MobiVerse 会上传我的电子书吗？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "不会。分类、转换、封面提取与预览都在用户的电脑上完成。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "MobiVerse 能移除 DRM 吗？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "不能。MobiVerse 只处理未加 DRM 或系统能够正常读取的文件。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "使用 MobiVerse 前需要另外安装 Calibre 吗？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "macOS 正式发行包内置所需转换组件，普通用户无需单独安装 Calibre。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "转换后的 EPUB 保存在哪里？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "默认保存在原文件旁边，并避免覆盖已有的同名 EPUB。"
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main" data-i18n="skipLink">跳到主要内容</a>
+
+  <header class="site-header" data-header>
+    <div class="shell header-inner">
+      <a class="brand" href="#top" aria-label="MobiVerse 首页" data-i18n-aria-label="brandHome">
+        <img src="assets/mobiverse-icon.png" width="42" height="42" alt="">
+        <span class="brand-copy">
+          <strong>MobiVerse</strong>
+          <small>Make room for every story</small>
+        </span>
+      </a>
+
+      <nav class="site-nav" id="site-nav" aria-label="主导航" data-nav data-i18n-aria-label="mainNav">
+        <a href="#product" data-i18n="nav.product">产品</a>
+        <a href="#workflow" data-i18n="nav.workflow">工作流</a>
+        <a href="#features" data-i18n="nav.features">功能</a>
+        <a href="/guides/" data-i18n="nav.guides">使用指南</a>
+        <a href="#privacy" data-i18n="nav.privacy">隐私</a>
+        <a class="nav-download" href="/download/" data-i18n="nav.download">下载最新版</a>
+      </nav>
+
+      <button class="language-toggle" type="button" data-language-toggle aria-label="Switch to English">
+        <span data-language-current>中</span><i aria-hidden="true">/</i><span data-language-next>EN</span>
+      </button>
+
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+        <span class="sr-only" data-nav-toggle-label>打开导航</span>
+        <span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero-backdrop" aria-hidden="true"></div>
+      <div class="shell hero-inner">
+        <div class="hero-copy" data-reveal>
+          <p class="eyebrow"><span></span> <b data-i18n="hero.eyebrow">本地优先的阅读转换工具</b></p>
+          <h1 id="hero-title" data-i18n-html="hero.title">MobiVerse<br><em>本地电子书与漫画转换工具。</em></h1>
+          <p class="hero-lead" data-i18n="hero.lead">打开 EPUB，转换 Kindle 电子书、漫画压缩包与 PDF。无需上传，无需额外安装 Calibre——只留下适合 Apple Books 与现代阅读器的精致书籍。</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="/download/">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M16.7 12.9c0-2.4 2-3.6 2.1-3.7a4.6 4.6 0 0 0-3.6-1.9c-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.8A4.8 4.8 0 0 0 4 9.9c-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.3 2.5 1.3-.1 1.8-.8 3.5-.8 1.6 0 2.1.8 3.5.8 1.5 0 2.4-1.3 3.2-2.5a11 11 0 0 0 1.5-3.1 4.4 4.4 0 0 1-3.6-4.1ZM14.2 5.7A4.4 4.4 0 0 0 15.3 2a4.6 4.6 0 0 0-3.1 1.8 4.1 4.1 0 0 0-1.1 3.5 3.8 3.8 0 0 0 3.1-1.6Z"/></svg>
+              <span data-i18n="hero.download">下载最新版</span>
+            </a>
+            <a class="button button-quiet" href="#product"><span data-i18n="hero.how">看看它如何工作</span> <span aria-hidden="true">↘</span></a>
+          </div>
+          <div class="hero-trust" aria-label="产品特点" data-i18n-aria-label="hero.highlights">
+            <span><i aria-hidden="true"></i> <b data-i18n="hero.local">完全本地转换</b></span>
+            <span><i aria-hidden="true"></i> Apple Silicon</span>
+            <span><i aria-hidden="true"></i> <b data-i18n="hero.openSource">GPLv3 开源</b></span>
+          </div>
+        </div>
+      </div>
+      <a class="scroll-cue" href="#formats" aria-label="继续向下浏览" data-i18n-aria-label="scrollMore"><span>SCROLL</span><i></i></a>
+    </section>
+
+    <section class="format-ribbon" id="formats" aria-label="支持格式" data-i18n-aria-label="formats.label">
+      <div class="shell format-inner">
+        <p data-i18n="formats.tagline">从散落的格式，到统一的书架</p>
+        <div class="formats" aria-label="EPUB、MOBI、AZW、AZW3、CBZ、CBR、ZIP、PDF" data-i18n-aria-label="formats.list">
+          <span>EPUB</span><i></i><span>MOBI</span><i></i><span>AZW3</span><i></i><span>CBZ</span><i></i><span>CBR</span><i></i><span>PDF</span>
+        </div>
+        <strong>→ EPUB 3</strong>
+      </div>
+    </section>
+
+    <section class="product-section section" id="product" aria-labelledby="product-title">
+      <div class="shell">
+        <div class="section-heading split-heading" data-reveal>
+          <div>
+            <p class="eyebrow"><span></span> <b data-i18n="product.eyebrow">一张安静的数字书桌</b></p>
+            <h2 id="product-title" data-i18n-html="product.title">不是转换器窗口。<br>是你的私人阅读工作区。</h2>
+          </div>
+          <p data-i18n="product.lead">MobiVerse 把导入、分析、确认、转换、验证和阅读收进一个温暖的书架界面。你能看见进度，却不必被技术细节打扰。</p>
+        </div>
+
+        <figure class="product-window" data-reveal>
+          <div class="window-bar" aria-hidden="true">
+            <span class="traffic red"></span><span class="traffic yellow"></span><span class="traffic green"></span>
+            <div class="window-title"><img src="assets/mobiverse-icon.png" alt=""> MobiVerse</div>
+            <span class="window-status" data-i18n="product.ready">本地就绪</span>
+          </div>
+          <img src="assets/product-showcase-refined.png" alt="MobiVerse 书架工作区，包含拖放转换区、转换统计与图书卡片" data-i18n-alt="product.imageAlt" loading="lazy">
+          <figcaption data-i18n="product.caption">真实产品界面 · 示例图书已经脱敏</figcaption>
+        </figure>
+
+        <div class="product-pillars">
+          <article data-reveal>
+            <span class="pillar-number">01</span>
+            <h3 data-i18n="product.pillar1Title">分析，而不是猜测</h3>
+            <p data-i18n="product.pillar1Body">在本地识别文本书、漫画与不确定文件，展示置信度和依据，并把最终决定留给你。</p>
+          </article>
+          <article data-reveal>
+            <span class="pillar-number">02</span>
+            <h3 data-i18n="product.pillar2Title">转换，而不打断阅读</h3>
+            <p data-i18n="product.pillar2Body">为文字书、漫画和 PDF 选择合适的路线；完成后直接进入分页阅读器，准确恢复阅读位置。</p>
+          </article>
+          <article data-reveal>
+            <span class="pillar-number">03</span>
+            <h3 data-i18n="product.pillar3Title">整理，而不暴露路径</h3>
+            <p data-i18n="product.pillar3Body">保留转换历史、真实封面和状态信息；界面不展示完整的本地文件路径。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="workflow-section section" id="workflow" aria-labelledby="workflow-title">
+      <div class="shell">
+        <div class="section-heading centered" data-reveal>
+          <p class="eyebrow"><span></span> <b data-i18n="workflow.eyebrow">三步，回到故事本身</b></p>
+          <h2 id="workflow-title" data-i18n-html="workflow.title">把书交给 MobiVerse。<br>其余的，安静发生。</h2>
+        </div>
+
+        <div class="workflow-grid">
+          <article class="workflow-card" data-reveal>
+            <div class="workflow-visual drop-visual" aria-hidden="true">
+              <span class="mini-book book-one"></span><span class="mini-book book-two"></span><span class="mini-book book-three"></span>
+              <div class="drop-zone"><span>＋</span></div>
+            </div>
+            <span class="step-label">STEP 01</span>
+            <h3 data-i18n="workflow.step1Title">拖入你的书</h3>
+            <p data-i18n="workflow.step1Body">一次导入一本或一整个书单。文件选择、拖放和浏览器下载共享同一条可靠流程。</p>
+          </article>
+
+          <article class="workflow-card featured" data-reveal>
+            <div class="workflow-visual analysis-visual" aria-hidden="true">
+              <div class="analysis-sheet">
+                <i></i><i></i><i></i>
+                <span class="analysis-badge">98%</span>
+              </div>
+              <span class="scan-line"></span>
+            </div>
+            <span class="step-label">STEP 02</span>
+            <h3 data-i18n="workflow.step2Title">确认智能分析</h3>
+            <p data-i18n="workflow.step2Body">检查类型、依据和阅读方向。自动化保持透明，所有判断都可以覆盖。</p>
+          </article>
+
+          <article class="workflow-card" data-reveal>
+            <div class="workflow-visual read-visual" aria-hidden="true">
+              <div class="open-book"><span></span><span></span></div>
+              <i class="spark spark-one"></i><i class="spark spark-two"></i>
+            </div>
+            <span class="step-label">STEP 03</span>
+            <h3 data-i18n="workflow.step3Title">转换并开始阅读</h3>
+            <p data-i18n="workflow.step3Body">生成经过整理与验证的 EPUB 3，保存在原文件旁边，并立即进入精致分页预览。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="features-section section" id="features" aria-labelledby="features-title">
+      <div class="shell">
+        <div class="section-heading split-heading" data-reveal>
+          <div>
+            <p class="eyebrow"><span></span> <b data-i18n="features.eyebrow">为真正的阅读场景而做</b></p>
+            <h2 id="features-title" data-i18n-html="features.title">复杂留在工具里，<br>舒适留给读者。</h2>
+          </div>
+          <p data-i18n="features.lead">从数百 MB 的漫画 PDF，到带日文注音的 Kindle 文字书，MobiVerse 不用一条粗糙的转换路线处理所有内容。</p>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature-card feature-wide" data-reveal>
+            <div class="feature-icon sage" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 8.5 16 4l11 4.5v15L16 28 5 23.5v-15Z"/><path d="M16 4v24M5 8.5l11 4 11-4"/></svg></div>
+            <div><span class="feature-kicker">LOCAL INTELLIGENCE</span><h3 data-i18n="features.localTitle">完全本地的智能图书分析</h3><p data-i18n="features.localBody">分类、转换、封面提取和预览都在你的电脑上完成。书籍不会被上传到服务器。</p></div>
+            <div class="local-orbit" aria-hidden="true"><span></span><i></i><b>LOCAL</b></div>
+          </article>
+
+          <article class="feature-card" data-reveal>
+            <div class="feature-icon terra" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M7 5h18v22H7z"/><path d="M11 10h10M11 15h10M11 20h6"/></svg></div>
+            <span class="feature-kicker">PDF FAST PATH</span><h3 data-i18n="features.pdfTitle">原生 PDF 漫画转换</h3><p data-i18n="features.pdfBody">逐页生成固定布局 EPUB，保留原始视觉效果，并显示真实页数进度。</p>
+          </article>
+
+          <article class="feature-card dark-card" data-reveal>
+            <div class="feature-icon light" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 7h9a5 5 0 0 1 5 5v15H10a5 5 0 0 0-5 0V7Z"/><path d="M27 7h-3a5 5 0 0 0-5 5v15h3a5 5 0 0 1 5 0V7Z"/></svg></div>
+            <span class="feature-kicker">PAGINATED READER</span><h3 data-i18n="features.readerTitle">阅读优先的分页预览</h3><p data-i18n="features.readerBody">文字书水平翻页，漫画逐页适配窗口；主题、字号和阅读位置都被记住。</p>
+          </article>
+
+          <article class="feature-card" data-reveal>
+            <div class="feature-icon cobalt" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M6 7h20v18H6z"/><path d="M6 12h20M11 7v18"/></svg></div>
+            <span class="feature-kicker">BATCH & HISTORY</span><h3 data-i18n="features.batchTitle">批量转换与历史记录</h3><p data-i18n="features.batchBody">批量排队、失败重试、打开预览、显示输出、查看报告，一切都在一个书架里。</p>
+          </article>
+
+          <article class="feature-card feature-wide comparison-card" data-reveal>
+            <div><span class="feature-kicker">APPLE BOOKS READY</span><h3 data-i18n="features.booksTitle">为 Apple Books 整理每一页</h3><p data-i18n="features.booksBody">写入封面元数据、固定布局选项与自包含图像页，减少黑页、拉伸和翻页尺寸跳动。</p></div>
+            <img src="assets/apple-books-comparison.svg" alt="经过 MobiVerse 处理前后的漫画页面布局对比" data-i18n-alt="features.comparisonAlt" loading="lazy">
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="privacy-section section" id="privacy" aria-labelledby="privacy-title">
+      <div class="privacy-grain" aria-hidden="true"></div>
+      <div class="shell privacy-layout">
+        <div class="privacy-copy" data-reveal>
+          <p class="eyebrow light-eyebrow"><span></span> <b data-i18n="privacy.eyebrow">你的书，只属于你</b></p>
+          <h2 id="privacy-title" data-i18n-html="privacy.title">云端没有副本。<br>服务器没有故事。</h2>
+          <p data-i18n="privacy.lead">MobiVerse 从一开始就把隐私当作产品结构，而不是设置页里的一枚开关。</p>
+          <ul>
+            <li><span>✓</span> <b data-i18n="privacy.point1">转换、分析和封面缓存完全在本机进行</b></li>
+            <li><span>✓</span> <b data-i18n="privacy.point2">EPUB 预览禁用脚本、远程资源和持久化存储</b></li>
+            <li><span>✓</span> <b data-i18n="privacy.point3">浏览数据可独立清除，不影响书库与转换历史</b></li>
+          </ul>
+          <a class="text-link" href="https://github.com/DemonDevil-Git/MobiVerse"><span data-i18n="privacy.source">查看开源代码</span> <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="privacy-seal" aria-hidden="true" data-reveal>
+          <div class="seal-rings"><i></i><i></i><i></i></div>
+          <div class="seal-core">
+            <svg viewBox="0 0 48 48"><path d="M12 21V14a12 12 0 0 1 24 0v7"/><rect x="8" y="21" width="32" height="23" rx="7"/><path d="M24 30v7"/></svg>
+            <strong>100%</strong><span>ON DEVICE</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="support-section section" aria-labelledby="support-title">
+      <div class="shell support-layout">
+        <div class="section-heading" data-reveal>
+          <p class="eyebrow"><span></span> <b data-i18n="support.eyebrow">支持格式</b></p>
+          <h2 id="support-title" data-i18n="support.title">一本书，不该被格式困住。</h2>
+          <p data-i18n="support.lead">受 DRM 保护或无法读取的文件会被清楚标记；MobiVerse 不移除 DRM。</p>
+        </div>
+        <div class="format-table" data-reveal>
+          <div><strong>EPUB</strong><span data-i18n="support.epub">直接加入书架并打开预览</span><i>OPEN</i></div>
+          <div><strong>MOBI · AZW · AZW3</strong><span data-i18n="support.kindle">未加 DRM 的 Kindle 风格电子书</span><i>CONVERT</i></div>
+          <div><strong>CBZ · CBR · ZIP</strong><span data-i18n="support.comics">有序图片组成的漫画压缩包</span><i>CONVERT</i></div>
+          <div><strong>PDF</strong><span data-i18n="support.pdf">漫画和图像型文档的原生快速路径</span><i>FAST PATH</i></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="discovery-section section" id="guides" aria-labelledby="discovery-title">
+      <div class="shell">
+        <div class="section-heading split-heading" data-reveal>
+          <div>
+            <p class="eyebrow"><span></span> <b data-i18n="discovery.eyebrow">按问题找到答案</b></p>
+            <h2 id="discovery-title" data-i18n-html="discovery.title">什么时候应该选择<br>MobiVerse？</h2>
+          </div>
+          <p data-i18n="discovery.lead">当你需要离线转换旧 Kindle 文件、整理漫画压缩包，或修复 Apple Books 中的漫画页面时，MobiVerse 提供比通用转换流程更聚焦的本地方案。</p>
+        </div>
+        <div class="discovery-grid">
+          <a href="/guides/mobi-to-epub/" data-reveal>
+            <span>01</span>
+            <h3 data-i18n="discovery.mobiTitle">MOBI 转 EPUB</h3>
+            <p data-i18n="discovery.mobiBody">把未加 DRM 的 Kindle 旧格式转换成现代 EPUB。</p>
+          </a>
+          <a href="/guides/azw3-to-epub/" data-reveal>
+            <span>02</span>
+            <h3 data-i18n="discovery.azwTitle">AZW3 转 EPUB</h3>
+            <p data-i18n="discovery.azwBody">在本机迁移可读取的 AZW3 图书，无需上传文件。</p>
+          </a>
+          <a href="/guides/cbz-cbr-to-epub/" data-reveal>
+            <span>03</span>
+            <h3 data-i18n="discovery.comicTitle">漫画压缩包转 EPUB</h3>
+            <p data-i18n="discovery.comicBody">把 CBZ、CBR 和 ZIP 漫画整理成固定布局 EPUB。</p>
+          </a>
+          <a href="/guides/fix-comic-epub-apple-books/" data-reveal>
+            <span>04</span>
+            <h3 data-i18n="discovery.booksTitle">修复 Apple Books 漫画</h3>
+            <p data-i18n="discovery.booksBody">减少黑页、拉伸、异常边距和页面尺寸跳动。</p>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq-section section" aria-labelledby="faq-title">
+      <div class="shell faq-layout">
+        <div class="section-heading" data-reveal>
+          <p class="eyebrow"><span></span> <b>FAQ</b></p>
+          <h2 id="faq-title" data-i18n="faq.title">关于 MobiVerse</h2>
+        </div>
+        <div class="faq-list" data-reveal>
+          <details>
+            <summary data-i18n="faq.localQ">MobiVerse 会上传我的电子书吗？</summary>
+            <p data-i18n="faq.localA">不会。分类、转换、封面提取与预览都在你的电脑上完成。</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.drmQ">MobiVerse 能移除 DRM 吗？</summary>
+            <p data-i18n="faq.drmA">不能。MobiVerse 只处理未加 DRM 或系统能够正常读取的文件。</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.calibreQ">使用前需要另外安装 Calibre 吗？</summary>
+            <p data-i18n="faq.calibreA">macOS 正式发行包内置所需转换组件，普通用户无需单独安装 Calibre。</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.outputQ">转换后的 EPUB 保存在哪里？</summary>
+            <p data-i18n="faq.outputA">默认保存在原文件旁边，并避免覆盖已有的同名 EPUB。</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-section" aria-labelledby="cta-title">
+      <div class="shell cta-card" data-reveal>
+        <img class="cta-icon" src="assets/mobiverse-icon.png" alt="" width="112" height="112">
+        <div>
+          <p class="eyebrow"><span></span> MAKE ROOM FOR EVERY STORY</p>
+          <h2 id="cta-title" data-i18n="cta.title">让下一本书，住进更好的书架。</h2>
+          <p data-i18n="cta.requirements">macOS 14 或更高版本 · Apple Silicon · Windows 11 ARM64</p>
+        </div>
+        <div class="cta-actions">
+          <a class="button button-primary" href="/download/" data-i18n="nav.download">下载最新版</a>
+          <a class="button button-outline" href="/guides/" data-i18n="nav.guides">使用指南</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <div class="footer-brand">
+        <a class="brand" href="#top">
+          <img src="assets/mobiverse-icon.png" width="38" height="38" alt="">
+          <span class="brand-copy"><strong>MobiVerse</strong><small>Make room for every story</small></span>
+        </a>
+        <p data-i18n="footer.tagline">本地优先的阅读转换工具，为每一种故事整理更好的归宿。</p>
+      </div>
+      <div class="footer-links">
+        <div><strong data-i18n="footer.product">产品</strong><a href="#product" data-i18n="footer.interface">产品界面</a><a href="#workflow" data-i18n="nav.workflow">工作流</a><a href="/guides/" data-i18n="nav.guides">使用指南</a></div>
+        <div><strong data-i18n="footer.download">下载</strong><a href="/download/">macOS</a><a href="/download/">Windows</a></div>
+        <div><strong data-i18n="footer.project">项目</strong><a href="https://github.com/DemonDevil-Git/MobiVerse">GitHub</a><a href="https://github.com/DemonDevil-Git/MobiVerse/releases" data-i18n="footer.releases">发布记录</a><a href="https://github.com/DemonDevil-Git/MobiVerse/blob/main/LICENSE">GPLv3</a></div>
+      </div>
+    </div>
+    <div class="shell footer-bottom"><span>© 2026 MobiVerse</span><span>Designed for quiet reading.</span></div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

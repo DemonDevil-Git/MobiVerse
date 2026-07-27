@@ -1,0 +1,29 @@
+# MobiVerse
+
+> MobiVerse is a local-first ebook and comic converter for macOS and Windows. It converts DRM-free MOBI, AZW, AZW3, CBZ, CBR, ZIP, and PDF files into polished EPUB 3 books for Apple Books and modern EPUB readers. Files stay on the user's computer.
+
+MobiVerse does not remove DRM. The macOS release bundles the required conversion components, so readers do not need a separate Calibre installation. Converted EPUB files are saved beside the source file by default without overwriting an existing EPUB.
+
+## Product
+
+- [Product overview](https://mobiverse-coral.vercel.app/): Features, supported formats, privacy, screenshots, and platform information.
+- [Download MobiVerse](https://mobiverse-coral.vercel.app/download/): Stable download page that resolves the latest official GitHub release.
+- [Source code](https://github.com/DemonDevil-Git/MobiVerse): GPLv3 source code and technical documentation.
+- [Latest release](https://github.com/DemonDevil-Git/MobiVerse/releases/latest): Current release notes and official assets.
+
+## Use cases
+
+- [Convert MOBI to EPUB](https://mobiverse-coral.vercel.app/guides/mobi-to-epub/): Local conversion for DRM-free legacy Kindle files.
+- [Convert AZW3 to EPUB](https://mobiverse-coral.vercel.app/guides/azw3-to-epub/): Local migration for readable AZW3 books.
+- [Convert CBZ or CBR comics to EPUB](https://mobiverse-coral.vercel.app/guides/cbz-cbr-to-epub/): Fixed-layout EPUB conversion for ordered comic images.
+- [Fix comic EPUBs for Apple Books](https://mobiverse-coral.vercel.app/guides/fix-comic-epub-apple-books/): Reduce stretched pages, black pages, margins, and page-size jumps.
+- [Offline ebook conversion](https://mobiverse-coral.vercel.app/guides/offline-ebook-converter/): Privacy-focused alternative to upload-based converters.
+
+## Facts and limitations
+
+- Supported inputs: EPUB, MOBI, AZW, AZW3, CBZ, CBR, ZIP, and PDF.
+- Primary output: EPUB 3.
+- Privacy: conversion, analysis, cover extraction, and preview run locally.
+- DRM: MobiVerse does not remove or bypass DRM.
+- License: GPL-3.0-or-later.
+- Best fit: Apple Books users, manga and comic readers, illustrated ebooks, old Kindle libraries, and users who prefer offline conversion.

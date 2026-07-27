@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Fix stretched pages, black pages, margins, and unstable sizing in comic EPUB files for Apple Books with MobiVerse.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://mobiverse-coral.vercel.app/guides/fix-comic-epub-apple-books/">
+  <meta property="og:title" content="Fix comic EPUB pages for Apple Books">
+  <meta property="og:description" content="Rebuild comic images as Apple Books-friendly fixed-layout EPUB pages.">
+  <meta property="og:image" content="https://mobiverse-coral.vercel.app/assets/apple-books-comparison.svg">
+  <title>Fix comic EPUB pages for Apple Books with MobiVerse</title>
+  <link rel="icon" href="../../assets/mobiverse-icon.png">
+  <link rel="stylesheet" href="../../content.css">
+</head>
+<body>
+  <header class="content-header"><div class="shell header-inner"><a class="brand" href="/"><img src="../../assets/mobiverse-icon.png" alt="">MobiVerse</a><nav class="content-nav"><a href="/guides/">Guides</a><a class="download-link" href="/download/">Download</a></nav></div></header>
+  <main class="content-main">
+    <section class="content-hero"><div class="shell"><p class="eyebrow">Apple Books · Fixed layout</p><h1>Fix stretched or black comic pages in Apple Books</h1><p class="lead">MobiVerse rebuilds image-heavy books with fixed-layout metadata, self-contained page markup, cover metadata, and stable image sizing.</p><div class="actions"><a class="button primary" href="/download/">Download MobiVerse</a></div></div></section>
+    <div class="shell content-body">
+      <article class="article">
+        <div class="answer"><strong>Short answer</strong>Convert the original comic archive, image-heavy Kindle file, or PDF with MobiVerse. It rebuilds comic pages instead of relying on a generic reflowable EPUB layout.</div>
+        <img class="comparison-image" src="../../assets/apple-books-comparison.svg" alt="Stretched comic page before MobiVerse and centered fixed-layout page after MobiVerse">
+        <h2>Problems this workflow targets</h2><ul><li>Pages stretched beyond their original aspect ratio.</li><li>Black or blank pages caused by fragile markup.</li><li>Unexpected margins around full-page artwork.</li><li>Page dimensions changing during horizontal turns.</li><li>Missing cover and reading-direction metadata.</li></ul>
+        <h2>What MobiVerse changes</h2><p>For image-page books, MobiVerse writes fixed-layout EPUB metadata and self-contained SVG-backed pages. Images are centered and fitted without changing their aspect ratio.</p>
+        <h2>Recommended workflow</h2><ol><li>Start from the original CBZ, CBR, ZIP, PDF, MOBI, or AZW3 source when available.</li><li>Confirm that MobiVerse identifies the source as a comic or illustrated book.</li><li>Choose the appropriate reading direction.</li><li>Convert, preview several pages, and then open the EPUB in Apple Books.</li></ol>
+        <p class="note">Reader behavior can vary by OS version. Keep the original source and test representative pages before deleting an older EPUB.</p>
+        <h2>中文摘要</h2><p>MobiVerse 通过固定布局元数据、自包含图像页和稳定宽高比，减少 Apple Books 中常见的黑页、拉伸、边距和翻页尺寸跳动。</p>
+      </article>
+      <aside class="sidebar"><strong>Related guides</strong><a href="../cbz-cbr-to-epub/">CBZ/CBR to EPUB</a><a href="../mobi-to-epub/">MOBI to EPUB</a><a href="../offline-ebook-converter/">Offline conversion</a></aside>
+    </div>
+  </main>
+  <footer class="content-footer"><div class="shell footer-inner"><span>© 2026 MobiVerse</span><a href="/guides/">All guides</a></div></footer>
+</body>
+</html>
