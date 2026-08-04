@@ -47,5 +47,5 @@ fetch(RELEASE_API, { headers: { Accept: "application/vnd.github+json" } })
     );
   })
   .catch(() => {
-    // The verified v2.3.1 fallback remains usable when GitHub is unavailable.
+    // The verified v2.4.0 fallback remains usable when GitHub is unavailable.
   });
