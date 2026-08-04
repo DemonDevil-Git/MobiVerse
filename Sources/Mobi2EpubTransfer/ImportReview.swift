@@ -170,7 +170,7 @@ private struct ImportReviewRow: View {
                 Text(item.url.deletingPathExtension().lastPathComponent)
                     .font(.headline)
                     .lineLimit(1)
-                Text(item.classification.evidence)
+                Text(L10n.string(item.classification.evidence))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -213,10 +213,10 @@ private struct ImportReviewRow: View {
     private var confidenceLabel: String {
         let percent = Int((item.classification.confidence * 100).rounded())
         let kind = switch item.classification.kind {
-        case .text: "Text book"
-        case .comic: "Comic / image book"
-        case .uncertain: "Needs your choice"
+        case .text: L10n.string("Text book")
+        case .comic: L10n.string("Comic / image book")
+        case .uncertain: L10n.string("Needs your choice")
         }
-        return "\(kind) · \(percent)% confidence"
+        return L10n.format("%@ · %lld%% confidence", kind, percent)
     }
 }

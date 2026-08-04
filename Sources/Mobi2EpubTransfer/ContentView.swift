@@ -6,10 +6,14 @@ import WebKit
 struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage(AppAppearancePreference.storageKey) private var appearanceRawValue = AppAppearancePreference.system.rawValue
+    @AppStorage(AppLanguagePreference.storageKey) private var languageRawValue = AppLanguagePreference.simplifiedChinese.rawValue
     @StateObject private var viewModel = ConversionViewModel()
     @StateObject private var importReview = ImportReviewCoordinator()
     @StateObject private var browserTabs = BrowserTabStore()
-    @StateObject private var browserDownloads = BrowserDownloadManager()
+    // Retain the manager without observing it at the app-content level. The
+    // Browser workspace observes it directly when visible; otherwise large
+    // download progress updates must not invalidate the 3D shelf hierarchy.
+    @State private var browserDownloads = BrowserDownloadManager()
     @ObservedObject private var openBookRouter = OpenBookRouter.shared
     @State private var isSidebarVisible = true
     @State private var isToolStatusPresented = false
@@ -49,7 +53,7 @@ struct ContentView: View {
                 } label: {
                     Label("Toggle sidebar", systemImage: "sidebar.leading")
                 }
-                .help(isSidebarVisible ? "Hide sidebar" : "Show sidebar")
+                .help(L10n.string(isSidebarVisible ? "Hide sidebar" : "Show sidebar"))
             }
 
             ToolbarItem(placement: .primaryAction) {
@@ -83,13 +87,14 @@ struct ContentView: View {
             } onConfirm: { items in
                 confirmImports(items)
             }
+            .environment(\.locale, selectedLanguage.locale)
         }
         .alert(item: $presentedAlert) { alert in
             switch alert {
             case .previewError(let message):
                 Alert(
                     title: Text("Preview unavailable"),
-                    message: Text(message),
+                    message: Text(L10n.string(message)),
                     dismissButton: .default(Text("OK"))
                 )
             case .deleteConfirmation(let task):
@@ -104,7 +109,7 @@ struct ContentView: View {
             case .deletionError(let message):
                 Alert(
                     title: Text("Couldn’t delete EPUB"),
-                    message: Text(message),
+                    message: Text(L10n.string(message)),
                     dismissButton: .default(Text("OK"))
                 )
             }
@@ -183,7 +188,7 @@ struct ContentView: View {
                 Button {
                     isImportReviewPresented = true
                 } label: {
-                    Label("Review \(importReview.items.count) import\(importReview.items.count == 1 ? "" : "s")", systemImage: "checklist")
+                    Label(L10n.format("Review %lld imports", importReview.items.count), systemImage: "checklist")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -229,12 +234,13 @@ struct ContentView: View {
                 .accessibilityHidden(true)
 
             HStack(spacing: 10) {
-                Label(viewModel.canConvert ? "Ready to convert" : "Converter unavailable", systemImage: viewModel.canConvert ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                Label(L10n.string(viewModel.canConvert ? "Ready to convert" : "Converter unavailable"), systemImage: viewModel.canConvert ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(viewModel.canConvert ? MobiPalette.sage : .orange)
 
                 Spacer(minLength: 6)
 
+                LanguageMenu(selectionRawValue: $languageRawValue)
                 AppearanceMenu(selectionRawValue: $appearanceRawValue)
             }
         }
@@ -254,6 +260,10 @@ struct ContentView: View {
         AppAppearancePreference(rawValue: appearanceRawValue) ?? .system
     }
 
+    private var selectedLanguage: AppLanguagePreference {
+        AppLanguagePreference(rawValue: languageRawValue) ?? .simplifiedChinese
+    }
+
     private var failedTaskCount: Int {
         viewModel.tasks.filter { $0.status == .failed }.count
     }
@@ -264,13 +274,13 @@ struct ContentView: View {
 
     private var toolchainDetailMessage: String {
         let calibreMessage = viewModel.toolchain.calibreSource == .bundled
-            ? "Using the Calibre copy packaged inside this app."
-            : "Using the Calibre installation found on this Mac."
+            ? L10n.string("Using the Calibre copy packaged inside this app.")
+            : L10n.string("Using the Calibre installation found on this Mac.")
 
         if viewModel.toolchain.epubCheckURL == nil {
-            return "\(calibreMessage) EPUBCheck was not found, so validation reports will be marked as skipped."
+            return L10n.format("%@ EPUBCheck was not found, so validation reports will be marked as skipped.", calibreMessage)
         } else {
-            return "\(calibreMessage) EPUBCheck is available. Converted EPUB files will be structurally validated."
+            return L10n.format("%@ EPUBCheck is available. Converted EPUB files will be structurally validated.", calibreMessage)
         }
     }
 
@@ -328,7 +338,7 @@ struct ContentView: View {
     private var taskList: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Ready")
+                Text(L10n.string(taskLayout == .shelf3D ? "Your shelf" : "Ready"))
                     .font(.system(size: 24, weight: .semibold, design: .serif))
                 Spacer()
                 TaskLayoutToggle(selectedLayout: $taskLayout)
@@ -336,45 +346,100 @@ struct ContentView: View {
             .padding(.horizontal, 30)
             .padding(.top, 18)
 
-            ScrollView {
-                LazyVGrid(columns: taskGridColumns, spacing: 14) {
-                    ForEach(viewModel.tasks) { task in
-                        TaskRow(
-                            task: task,
-                            coverImage: viewModel.coverImage(for: task),
-                            isOutputMissing: viewModel.isOutputMissing(for: task),
-                            canDelete: viewModel.canDelete(task)
-                        ) {
-                            preview(task)
-                        } revealOutput: {
-                            viewModel.revealOutput(for: task)
-                        } openReport: {
-                            viewModel.openReport(for: task)
-                        } deleteOutput: {
-                            presentedAlert = .deleteConfirmation(task)
+            if taskLayout == .shelf3D {
+                Shelf3DView(
+                    tasks: shelfTasks,
+                    coverImage: { task in
+                        viewModel.showcaseCoverImage(for: task) ?? viewModel.coverImage(for: task)
+                    },
+                    metadata: viewModel.metadata(for:),
+                    isOutputMissing: viewModel.isOutputMissing(for:),
+                    requestAssets: viewModel.requestShelfAssets(for:),
+                    addBooks: { viewModel.isImporterPresented = true },
+                    preview: preview,
+                    revealOutput: viewModel.revealOutput(for:),
+                    openReport: viewModel.openReport(for:),
+                    deleteOutput: { task in presentedAlert = .deleteConfirmation(task) }
+                )
+                .padding(.horizontal, 22)
+                .padding(.bottom, 22)
+                .transition(.opacity.combined(with: .scale(scale: 0.992)))
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: taskGridColumns, spacing: 14) {
+                        ForEach(shelfTasks) { task in
+                            TaskRow(
+                                task: task,
+                                coverImage: viewModel.coverImage(for: task),
+                                isOutputMissing: viewModel.isOutputMissing(for: task),
+                                canDelete: viewModel.canDelete(task)
+                            ) {
+                                preview(task)
+                            } revealOutput: {
+                                viewModel.revealOutput(for: task)
+                            } openReport: {
+                                viewModel.openReport(for: task)
+                            } deleteOutput: {
+                                presentedAlert = .deleteConfirmation(task)
+                            }
+                            .onAppear {
+                                viewModel.requestCoverImage(for: task)
+                            }
                         }
-                        .onAppear {
-                            viewModel.requestCoverImage(for: task)
-                        }
-                    }
 
-                    AddBookShelfCard {
-                        viewModel.isImporterPresented = true
+                        AddBookShelfCard {
+                            viewModel.isImporterPresented = true
+                        }
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 24)
+                }
+                .overlay {
+                    if viewModel.tasks.isEmpty {
+                        ContentUnavailableView(
+                            "Your shelf is empty",
+                            systemImage: "books.vertical",
+                            description: Text("Add a book above to begin your MobiVerse library.")
+                        )
                     }
                 }
-                .padding(.horizontal, 28)
-                .padding(.bottom, 24)
-                .animation(.easeInOut(duration: 0.18), value: taskLayout)
+                .transition(.opacity)
             }
-            .overlay {
-                if viewModel.tasks.isEmpty {
-                    ContentUnavailableView(
-                        "Your shelf is empty",
-                        systemImage: "books.vertical",
-                        description: Text("Add a book above to begin your MobiVerse library.")
-                    )
+        }
+        .animation(.easeInOut(duration: 0.24), value: taskLayout)
+    }
+
+    private var shelfTasks: [ConversionTask] {
+        viewModel.tasks.enumerated()
+            .sorted { lhs, rhs in
+                let lhsPriority = shelfPriority(for: lhs.element.status)
+                let rhsPriority = shelfPriority(for: rhs.element.status)
+                if lhsPriority != rhsPriority {
+                    return lhsPriority < rhsPriority
                 }
+
+                if lhsPriority < 2 {
+                    return lhs.offset < rhs.offset
+                }
+
+                let lhsDate = lhs.element.completedAt ?? .distantPast
+                let rhsDate = rhs.element.completedAt ?? .distantPast
+                if lhsDate != rhsDate {
+                    return lhsDate > rhsDate
+                }
+                return lhs.offset < rhs.offset
             }
+            .map { $0.element }
+    }
+
+    private func shelfPriority(for status: ConversionStatus) -> Int {
+        switch status {
+        case .checkingTools, .converting, .validating:
+            0
+        case .queued:
+            1
+        case .succeeded, .succeededWithWarnings, .failed:
+            2
         }
     }
 
@@ -383,6 +448,8 @@ struct ContentView: View {
         case .grid:
             [GridItem(.adaptive(minimum: 340, maximum: 560), spacing: 14)]
         case .list:
+            [GridItem(.flexible(minimum: 340), spacing: 14)]
+        case .shelf3D:
             [GridItem(.flexible(minimum: 340), spacing: 14)]
         }
     }
@@ -468,7 +535,7 @@ struct ContentView: View {
         case .succeeded, .succeededWithWarnings:
             guard let outputURL = task.outputURL, !viewModel.isOutputMissing(for: task) else {
                 readingPreparation = nil
-                presentedAlert = .previewError("The converted EPUB is no longer available at the saved output path.")
+                presentedAlert = .previewError(L10n.string("The converted EPUB is no longer available at the saved output path."))
                 return
             }
             readingPreparation = ReadingPreparation(
@@ -545,16 +612,16 @@ struct ContentView: View {
 
     private func deleteConfirmationMessage(for task: ConversionTask) -> String {
         guard let outputURL = task.outputURL, FileManager.default.fileExists(atPath: outputURL.path) else {
-            return "This conversion will be removed from your history. No local EPUB file is available to delete."
+            return L10n.string("This conversion will be removed from your history. No local EPUB file is available to delete.")
         }
-        return "\"\(outputURL.lastPathComponent)\" will be permanently deleted from this Mac, and this conversion will be removed from your history."
+        return L10n.format("\"%@\" will be permanently deleted from this Mac, and this conversion will be removed from your history.", outputURL.lastPathComponent)
     }
 
     private func deleteConfirmationTitle(for task: ConversionTask) -> String {
         guard let outputURL = task.outputURL, FileManager.default.fileExists(atPath: outputURL.path) else {
-            return "Remove conversion history?"
+            return L10n.string("Remove conversion history?")
         }
-        return "Delete local EPUB?"
+        return L10n.string("Delete local EPUB?")
     }
 
     private func deleteOutputFile(for task: ConversionTask) {
@@ -660,7 +727,7 @@ private struct SidebarMetric: View {
             Image(systemName: icon)
                 .foregroundStyle(color)
                 .frame(width: 18)
-            Text(label)
+            Text(L10n.string(label))
                 .font(.callout)
             Spacer()
             Text(value.formatted())
@@ -699,8 +766,43 @@ private struct AppearanceMenu: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("Appearance: \(selection.title)")
-        .accessibilityLabel("Appearance")
+        .help(L10n.format("Appearance: %@", selection.title))
+        .accessibilityLabel(L10n.string("Appearance"))
+        .accessibilityValue(selection.title)
+    }
+}
+
+private struct LanguageMenu: View {
+    @Binding var selectionRawValue: String
+
+    private var selection: AppLanguagePreference {
+        AppLanguagePreference(rawValue: selectionRawValue) ?? .simplifiedChinese
+    }
+
+    var body: some View {
+        Menu {
+            ForEach(AppLanguagePreference.allCases) { option in
+                Button {
+                    selectionRawValue = option.rawValue
+                } label: {
+                    Label(option.title, systemImage: selection == option ? "checkmark" : "globe")
+                }
+            }
+        } label: {
+            Image(systemName: "globe")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(MobiPalette.ink.opacity(0.72))
+                .frame(width: 27, height: 27)
+                .background(MobiPalette.surface.opacity(0.72), in: Circle())
+                .overlay {
+                    Circle().stroke(MobiPalette.ink.opacity(0.10), lineWidth: 1)
+                }
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(L10n.format("Language: %@", selection.title))
+        .accessibilityLabel(L10n.string("Language"))
         .accessibilityValue(selection.title)
     }
 }
@@ -778,7 +880,7 @@ private struct ReadingPreparationOverlay: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                 VStack(spacing: 6) {
-                    Text(preparation.message)
+                    Text(L10n.string(preparation.message))
                         .font(.headline)
                     Text(preparation.sourceTitle)
                         .font(.callout)
@@ -1129,7 +1231,8 @@ private final class EpubPreviewWindowController: NSWindowController, NSWindowDel
                 close: { [weak window] in
                     window?.close()
                 }
-            ),
+            )
+            .environment(\.locale, AppLanguagePreference.selected.locale),
             gestureRouter: gestureRouter
         )
         installEventMonitor()
@@ -1204,15 +1307,15 @@ private struct ToolStatusButton: View {
                         .foregroundStyle(iconColor)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(canConvert ? toolchain.calibreSource.displayName : "Calibre missing")
+                        Text(L10n.string(canConvert ? toolchain.calibreSource.displayName : "Calibre missing"))
                             .font(.headline)
-                        Text(epubCheckSummary)
+                        Text(L10n.string(epubCheckSummary))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
 
-                Text(missingToolsMessage ?? detailMessage)
+                Text(L10n.string(missingToolsMessage ?? detailMessage))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1221,7 +1324,7 @@ private struct ToolStatusButton: View {
                     Button {
                         refresh()
                     } label: {
-                        Label("Refresh", systemImage: "arrow.triangle.2.circlepath")
+                        Label(L10n.string("Refresh"), systemImage: "arrow.triangle.2.circlepath")
                     }
 
                     Spacer()
@@ -1288,6 +1391,7 @@ private enum AppWorkspace: Hashable {
 private enum TaskLayout: Hashable {
     case grid
     case list
+    case shelf3D
 }
 
 private struct TaskLayoutToggle: View {
@@ -1297,6 +1401,7 @@ private struct TaskLayoutToggle: View {
         HStack(spacing: 2) {
             layoutButton(layout: .grid, icon: "square.grid.2x2.fill", title: "Grid view")
             layoutButton(layout: .list, icon: "list.bullet", title: "List view")
+            layoutButton(layout: .shelf3D, icon: "books.vertical.fill", title: "3D shelf")
         }
         .font(.callout)
         .padding(5)
@@ -1325,8 +1430,8 @@ private struct TaskLayoutToggle: View {
         }
         .buttonStyle(.plain)
         .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .help(title)
-        .accessibilityLabel(title)
+        .help(L10n.string(title))
+        .accessibilityLabel(L10n.string(title))
         .accessibilityAddTraits(selectedLayout == layout ? .isSelected : [])
     }
 }
@@ -1450,9 +1555,9 @@ private struct TaskRow: View {
     private var completionText: String {
         if isOutputMissing { return "Converted EPUB is no longer available" }
         if let completedAt = task.completedAt {
-            return "Completed \(completedAt.formatted(date: .abbreviated, time: .shortened))"
+            return L10n.format("Completed %@", completedAt.formatted(date: .abbreviated, time: .shortened))
         }
-        return task.statusMessage
+        return L10n.string(task.statusMessage)
     }
 
     private var formatIcon: String {
@@ -1475,7 +1580,7 @@ private struct TaskActionButton: View {
         Button(role: role, action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                if showsTitle { Text(title) }
+                if showsTitle { Text(L10n.string(title)) }
             }
             .font(.caption.weight(.medium))
             .frame(maxWidth: showsTitle ? .infinity : nil)
@@ -1488,7 +1593,7 @@ private struct TaskActionButton: View {
         .buttonStyle(.plain)
         .opacity(enabled ? 1 : 0.3)
         .disabled(!enabled)
-        .help(title)
+        .help(L10n.string(title))
     }
 }
 
@@ -1577,14 +1682,14 @@ private struct EpubPreviewView: View {
     private var modeLabel: String {
         switch book.mode {
         case .imagePages(let pages):
-            "\(pages.count) image pages"
+            L10n.format("%lld image pages", pages.count)
         case .web(let spineURLs):
-            "Text EPUB preview · \(spineURLs.count) sections"
+            L10n.format("Text EPUB preview · %lld sections", spineURLs.count)
         }
     }
 
     private var fullScreenButtonLabel: String {
-        windowState.isFullScreen ? "Exit full screen" : "Enter full screen"
+        L10n.string(windowState.isFullScreen ? "Exit full screen" : "Enter full screen")
     }
 
     private var fullScreenButtonIcon: String {
@@ -1825,9 +1930,9 @@ private enum TextReaderTheme: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .paper: "Paper"
-        case .sepia: "Sepia"
-        case .night: "Night"
+        case .paper: L10n.string("Paper")
+        case .sepia: L10n.string("Sepia")
+        case .night: L10n.string("Night")
         }
     }
 
@@ -1981,11 +2086,11 @@ private struct TextEpubPreview: View {
     private var readerPositionBadge: some View {
         VStack {
             HStack {
-                Text("SECTION \(sectionIndex + 1) OF \(spineURLs.count)")
+                Text(L10n.format("SECTION %lld OF %lld", sectionIndex + 1, spineURLs.count))
                     .font(.caption2.weight(.bold))
                     .tracking(1.15)
                 Spacer()
-                Text("PAGE \(pageIndex + 1) OF \(pageCount)")
+                Text(L10n.format("PAGE %lld OF %lld", pageIndex + 1, pageCount))
                     .font(.caption2.monospacedDigit().weight(.semibold))
             }
             .foregroundStyle(theme.primaryColor.opacity(0.46))
@@ -2008,7 +2113,7 @@ private struct TextEpubPreview: View {
                     .progressViewStyle(.linear)
                     .tint(MobiPalette.sage)
                 HStack {
-                    Text("Section \(sectionIndex + 1) · Page \(pageIndex + 1)")
+                    Text(L10n.format("Section %lld · Page %lld", sectionIndex + 1, pageIndex + 1))
                     Spacer()
                     Text(overallProgress.formatted(.percent.precision(.fractionLength(0))))
                         .monospacedDigit()
@@ -2065,8 +2170,8 @@ private struct TextEpubPreview: View {
         .buttonStyle(.plain)
         .foregroundStyle(MobiPalette.ink.opacity(enabled ? 0.76 : 0.22))
         .disabled(!enabled)
-        .help(title)
-        .accessibilityLabel(title)
+        .help(L10n.string(title))
+        .accessibilityLabel(L10n.string(title))
     }
 
     private var appearancePanel: some View {
@@ -2157,14 +2262,14 @@ private struct TextEpubPreview: View {
         trailingScale: Double = 1
     ) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(title.uppercased())
+            Text(L10n.string(title).uppercased())
                 .font(.caption2.weight(.bold)).tracking(1)
                 .foregroundStyle(MobiPalette.ink.opacity(0.48))
             HStack(spacing: 10) {
-                Text(leading).font(.caption)
+                Text(L10n.string(leading)).font(.caption)
                 Slider(value: value, in: range)
                     .tint(MobiPalette.sage)
-                Text(trailing).font(.caption).scaleEffect(trailingScale)
+                Text(L10n.string(trailing)).font(.caption).scaleEffect(trailingScale)
             }
         }
     }
@@ -2558,7 +2663,7 @@ private struct StatusBadge: View {
     let status: ConversionStatus
 
     var body: some View {
-        Label(status.displayName, systemImage: systemImage)
+        Label(L10n.string(status.displayName), systemImage: systemImage)
             .font(.caption.weight(.semibold))
             .foregroundStyle(color)
             .padding(.horizontal, 8)

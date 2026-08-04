@@ -28,11 +28,17 @@ final class MobiVerseAppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct Mobi2EpubTransferApp: App {
     @NSApplicationDelegateAdaptor(MobiVerseAppDelegate.self) private var appDelegate
+    @AppStorage(AppLanguagePreference.storageKey) private var languageRawValue = AppLanguagePreference.simplifiedChinese.rawValue
+
+    private var selectedLanguage: AppLanguagePreference {
+        AppLanguagePreference(rawValue: languageRawValue) ?? .simplifiedChinese
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .frame(minWidth: 1080, minHeight: 720)
+                .environment(\.locale, selectedLanguage.locale)
         }
         .windowStyle(.titleBar)
     }

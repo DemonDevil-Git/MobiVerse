@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.1.dmg"><img src="https://img.shields.io/badge/macOS%202.3.1-Download-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse 2.3.1 for macOS"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.4.0.dmg"><img src="https://img.shields.io/badge/macOS%202.4.0-Download-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse 2.4.0 for macOS"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.2.0-Download-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="Download MobiVerse 2.2.0 for Windows"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=Latest%20release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
@@ -57,14 +57,17 @@
 - **System-aware appearance**
   The complete Shelf, Browse, settings, review, and reader interface adapts to macOS light and dark appearances. A persistent appearance menu lets you follow the system or choose Light or Dark manually.
 
+- **English and Simplified Chinese interface**
+  The full app interface is localized in English and Simplified Chinese. A persistent language menu can follow macOS or switch languages directly.
+
 - **Direct EPUB library import**
   EPUBs opened directly are added to the library with extracted cover artwork. Reopening the same file updates the existing item instead of creating a duplicate.
 
 - **Real cover thumbnails**  
   Completed books show the converted EPUB cover in the shelf instead of generic file tiles. Covers are cached locally so reopened sessions restore the shelf quickly.
 
-- **Grid and list shelf views**  
-  Switch between a visual grid and a denser list layout from the shelf toolbar.
+- **Grid, list, and interactive 3D shelf views**
+  Switch between a visual grid, a denser list, and a responsive 3D bookshelf with animated direct book selection.
 
 - **Batch conversion with history**  
   Drag in multiple books, track progress, reveal outputs, open reports, and keep conversion history across launches. The completed list keeps titles and status visible without exposing full local file paths in the UI.
@@ -89,16 +92,16 @@ MobiVerse does not remove DRM. Protected or unreadable files are reported clearl
 
 ### macOS
 
-1. Download the latest DMG: [MobiVerse-2.3.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.1.dmg).
-2. Open `MobiVerse-2.3.1.dmg`.
+1. Download the latest DMG: [MobiVerse-2.4.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.4.0.dmg).
+2. Open `MobiVerse-2.4.0.dmg`.
 3. Drag `MobiVerse.app` into `Applications`, replacing the previous version when prompted.
 4. Launch MobiVerse and drop supported files into the window, or open supported files with MobiVerse from Finder.
 
-The current macOS release is MobiVerse 2.3.1 (12) for Apple Silicon (`arm64`) only.
+The current macOS release is MobiVerse 2.4.0 (13) for Apple Silicon (`arm64`) only.
 
 ### Windows 11 ARM64
 
-The current Windows release remains 2.2.0. Download and run [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe). The package includes the x64 MobiVerse and Calibre components used through Windows 11 ARM64 emulation, plus the native ARM64 WebView2 runtime. MobiVerse 2.3.1 is currently a macOS-only update.
+The current Windows release remains 2.2.0. Download and run [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe). The package includes the x64 MobiVerse and Calibre components used through Windows 11 ARM64 emulation, plus the native ARM64 WebView2 runtime. MobiVerse 2.4.0 is currently a macOS-only update.
 
 Converted EPUB files are written next to the original source file without overwriting existing EPUBs.
 
@@ -122,6 +125,16 @@ Opening an EPUB directly also adds it to the local library, extracts its cover t
 EPUB file references are confined to the extracted book directory. Text previews disable book-provided JavaScript, block remote web resources, restrict navigation, and use non-persistent WebView storage.
 
 PDF conversion preserves each page visually as a fixed-layout image. Selectable PDF text, links, annotations, and forms are not retained in the EPUB output.
+
+## What's New in 2.4.0
+
+- Added a complete Simplified Chinese interface and an in-app language selector for Simplified Chinese, English, or the macOS system language.
+- Added an interactive 3D shelf with direct book selection, smooth spring transitions, prewarmed book nodes, stable hover geometry, and responsive random access across the visible spines.
+- The newest converting, validating, and completed books now stay at the front of the shelf instead of appearing at the bottom.
+- Browse now shows animated download activity, and Cancel immediately stops and removes active downloads from the tray.
+- Optimized cover and metadata loading so large EPUB libraries no longer require full-archive extraction merely to populate the shelf.
+- Removed the redundant green completion strip from the bottom of 3D book covers.
+- Added focused regression coverage; 51 automated tests pass across 14 suites.
 
 ## What's New in 2.3.1
 
@@ -246,7 +259,7 @@ scripts/package-dmg.sh
 The generated installer image is written to:
 
 ```text
-.build/MobiVerse-2.3.1.dmg
+.build/MobiVerse-2.4.0.dmg
 ```
 
 Development builds use ad-hoc signing by default. They are suitable for local testing, but macOS Gatekeeper will block them after download from the internet.

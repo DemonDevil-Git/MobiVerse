@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.1.dmg"><img src="https://img.shields.io/badge/macOS%202.3.1-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse 2.3.1 macOS 版"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.4.0.dmg"><img src="https://img.shields.io/badge/macOS%202.4.0-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse 2.4.0 macOS 版"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.2.0-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="下载 MobiVerse 2.2.0 Windows 版"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC" alt="最新版本"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
@@ -57,14 +57,17 @@
 - **完整适配系统外观**
   书架、浏览器、设置、导入确认和阅读器都会适配 macOS 深浅色模式；也可以通过持久化外观菜单主动选择“跟随系统 / 浅色 / 深色”。
 
+- **英文与简体中文界面**
+  应用界面完整支持英文与简体中文；语言菜单可跟随 macOS，也可以在应用内直接切换。
+
 - **直接导入 EPUB 书库**
   直接打开的 EPUB 会自动加入书库并提取封面；再次打开同一文件会更新已有项目，不会产生重复记录。
 
 - **真实封面缩略图**  
   转换完成的图书会显示 EPUB 封面，而不是通用文件图标。封面会缓存在本地，重新打开 App 时书架能更快恢复。
 
-- **网格 / 列表两种书架视图**  
-  可以在书架工具栏切换视觉化网格布局和更紧凑的列表布局。
+- **网格 / 列表 / 交互式 3D 书架**
+  可以在视觉化网格、紧凑列表和支持动画直接选书的 3D 书架之间切换。
 
 - **批量转换与历史记录**  
   可以一次拖入多本书，查看转换进度、打开预览、显示输出文件、查看报告，并在重启后保留转换历史。完成列表中只显示标题、状态和完成时间，不暴露完整本地文件路径。
@@ -89,16 +92,16 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 
 ### macOS
 
-1. 下载最新 DMG：[MobiVerse-2.3.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.3.1.dmg)。
-2. 打开 `MobiVerse-2.3.1.dmg`。
+1. 下载最新 DMG：[MobiVerse-2.4.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.4.0.dmg)。
+2. 打开 `MobiVerse-2.4.0.dmg`。
 3. 将 `MobiVerse.app` 拖入 `Applications`；系统提示时替换旧版本。
 4. 启动 MobiVerse，把支持的文件拖入窗口，或在 Finder 中选择用 MobiVerse 打开。
 
-当前 macOS 版本为 MobiVerse 2.3.1 (12)，仅支持 Apple Silicon（`arm64`）。
+当前 macOS 版本为 MobiVerse 2.4.0 (13)，仅支持 Apple Silicon（`arm64`）。
 
 ### Windows 11 ARM64
 
-当前 Windows 版本仍为 2.2.0。下载并运行 [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe)。安装包包含通过 Windows 11 ARM64 仿真运行的 x64 MobiVerse 与 Calibre 组件，以及原生 ARM64 WebView2 运行时。MobiVerse 2.3.1 目前仅更新 macOS 版本。
+当前 Windows 版本仍为 2.2.0。下载并运行 [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe)。安装包包含通过 Windows 11 ARM64 仿真运行的 x64 MobiVerse 与 Calibre 组件，以及原生 ARM64 WebView2 运行时。MobiVerse 2.4.0 目前仅更新 macOS 版本。
 
 转换后的 EPUB 会保存到原文件旁边，并避免覆盖已有 EPUB。
 
@@ -122,6 +125,16 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 EPUB 内部文件引用会被限制在书籍解包目录中。文本预览会禁用书籍自带 JavaScript、阻止远程网络资源、限制页面导航，并使用非持久化 WebView 存储。
 
 PDF 转换会把每一页按原始视觉效果保存为固定布局图像，因此 PDF 中可选择的文字、链接、批注和表单不会保留到 EPUB 中。
+
+## 2.4.0 新增内容
+
+- 新增完整简体中文界面，并提供简体中文、English 与跟随 macOS 的应用内语言切换。
+- 新增交互式 3D 书架：支持直接点击任意可见书籍、平滑弹簧动画、书籍节点预热、稳定的悬停布局和快速随机切换。
+- 正在转换、正在验证以及最新完成的书籍会始终排在书架最前面，不再出现在列表底部。
+- Browse 下载时会显示动态活动标识；点击“取消”会立即终止下载并从下载托盘移除。
+- 优化大型 EPUB 的封面和元数据加载，无需为填充书架而解压整本书。
+- 移除 3D 书籍封面底部重复的绿色完成状态条。
+- 新增专项回归验证；当前 14 个测试套件共 51 项测试全部通过。
 
 ## 2.3.1 新增内容
 
@@ -246,7 +259,7 @@ scripts/package-dmg.sh
 生成的安装镜像位于：
 
 ```text
-.build/MobiVerse-2.3.1.dmg
+.build/MobiVerse-2.4.0.dmg
 ```
 
 默认开发构建使用 ad-hoc 签名，适合本地测试；但从互联网下载后会被 macOS Gatekeeper 拦截。

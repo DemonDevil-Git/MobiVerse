@@ -8,28 +8,38 @@ final class ConversionViewModel: ObservableObject {
     @Published private(set) var tasks: [ConversionTask] = []
     @Published private(set) var toolchain: ToolchainAvailability
     @Published private(set) var coverImages: [UUID: NSImage] = [:]
+    @Published private(set) var showcaseCoverImages: [UUID: NSImage] = [:]
+    @Published private(set) var bookMetadata: [UUID: EpubBookMetadata] = [:]
     @Published var isImporterPresented = false
 
     private let locator: CommandLocator
     private let outputPolicy: FileOutputPolicy
     private let historyStore: ConversionHistoryStore
     private let coverThumbnailCache: CoverThumbnailCache
+    private let bookMetadataCache: BookMetadataCache
     private var isProcessing = false
     private var loadingCoverTaskIDs: Set<UUID> = []
+    private var loadingShowcaseCoverTaskIDs: Set<UUID> = []
+    private var loadingMetadataTaskIDs: Set<UUID> = []
+    private var coverWarmupTask: Task<Void, Never>?
+    private var shelfAssetLoadingTask: Task<Void, Never>?
 
     init(
         locator: CommandLocator = CommandLocator(),
         outputPolicy: FileOutputPolicy = FileOutputPolicy(),
         historyStore: ConversionHistoryStore = ConversionHistoryStore(),
-        coverThumbnailCache: CoverThumbnailCache = CoverThumbnailCache()
+        coverThumbnailCache: CoverThumbnailCache = CoverThumbnailCache(),
+        bookMetadataCache: BookMetadataCache = BookMetadataCache()
     ) {
         self.locator = locator
         self.outputPolicy = outputPolicy
         self.historyStore = historyStore
         self.coverThumbnailCache = coverThumbnailCache
+        self.bookMetadataCache = bookMetadataCache
         self.toolchain = locator.inspectToolchain()
         self.tasks = historyStore.load()
         loadCachedCoverImagesForCompletedTasks()
+        loadCachedBookMetadataForCompletedTasks()
         requestCoverImagesForCompletedTasks()
     }
 
@@ -84,8 +94,7 @@ final class ConversionViewModel: ObservableObject {
                 if tasks[existingIndex].status == .failed
                     || isOutputMissing(for: tasks[existingIndex])
                     || needsReconversion {
-                    coverImages[tasks[existingIndex].id] = nil
-                    coverThumbnailCache.removeImage(for: tasks[existingIndex])
+                    discardPresentationAssets(for: tasks[existingIndex])
                     tasks[existingIndex].status = .queued
                     tasks[existingIndex].progress = 0
                     tasks[existingIndex].statusMessage = "Waiting"
@@ -155,8 +164,7 @@ final class ConversionViewModel: ObservableObject {
         case .checkingTools, .converting, .validating, .queued:
             return
         case .succeeded, .succeededWithWarnings, .failed:
-            coverImages[tasks[index].id] = nil
-            coverThumbnailCache.removeImage(for: tasks[index])
+            discardPresentationAssets(for: tasks[index])
             tasks[index].status = .queued
             tasks[index].progress = 0
             tasks[index].statusMessage = "Waiting"
@@ -189,9 +197,30 @@ final class ConversionViewModel: ObservableObject {
         coverImages[task.id]
     }
 
+    func showcaseCoverImage(for task: ConversionTask) -> NSImage? {
+        showcaseCoverImages[task.id]
+    }
+
+    func metadata(for task: ConversionTask) -> EpubBookMetadata? {
+        bookMetadata[task.id]
+    }
+
     func requestCoverImage(for task: ConversionTask) {
         Task {
             await loadCoverImageIfNeeded(for: task)
+        }
+    }
+
+    func requestShelfAssets(for task: ConversionTask) {
+        coverWarmupTask?.cancel()
+        shelfAssetLoadingTask?.cancel()
+        shelfAssetLoadingTask = Task(priority: .utility) { [weak self] in
+            guard let self else { return }
+            await loadCoverImageIfNeeded(for: task)
+            guard !Task.isCancelled else { return }
+            await loadShowcaseCoverImageIfNeeded(for: task)
+            guard !Task.isCancelled else { return }
+            await loadBookMetadataIfNeeded(for: task)
         }
     }
 
@@ -207,8 +236,7 @@ final class ConversionViewModel: ObservableObject {
             try FileManager.default.removeItem(at: outputURL)
         }
 
-        coverImages[storedTask.id] = nil
-        coverThumbnailCache.removeImage(for: storedTask)
+        discardPresentationAssets(for: storedTask)
         tasks.removeAll { $0.id == storedTask.id }
         persistTasks()
     }
@@ -352,7 +380,7 @@ final class ConversionViewModel: ObservableObject {
                 tasks[index].statusMessage = "EPUBCheck failed. Review the report."
             }
             persistTasks()
-            requestCoverImage(for: tasks[index])
+            requestShelfAssets(for: tasks[index])
         } catch let error as ConversionServiceError {
             tasks[index].status = .failed
             tasks[index].progress = 1
@@ -388,8 +416,16 @@ final class ConversionViewModel: ObservableObject {
     }
 
     private func requestCoverImagesForCompletedTasks() {
-        for task in tasks {
-            requestCoverImage(for: task)
+        coverWarmupTask?.cancel()
+        coverWarmupTask = Task(priority: .utility) { [weak self] in
+            try? await Task.sleep(for: .milliseconds(700))
+            guard let self, !Task.isCancelled else { return }
+
+            for task in tasks {
+                guard !Task.isCancelled else { return }
+                await loadCoverImageIfNeeded(for: task)
+                await Task.yield()
+            }
         }
     }
 
@@ -402,6 +438,18 @@ final class ConversionViewModel: ObservableObject {
                 continue
             }
             coverImages[task.id] = cachedImage
+        }
+    }
+
+    private func loadCachedBookMetadataForCompletedTasks() {
+        for task in tasks {
+            guard
+                task.status == .succeeded || task.status == .succeededWithWarnings,
+                let cachedMetadata = bookMetadataCache.metadata(for: task)
+            else {
+                continue
+            }
+            bookMetadata[task.id] = cachedMetadata
         }
     }
 
@@ -438,10 +486,87 @@ final class ConversionViewModel: ObservableObject {
             if cachedImage == nil {
                 coverThumbnailCache.save(image, for: task)
             }
+            if coverThumbnailCache.showcaseImage(for: task) == nil {
+                coverThumbnailCache.saveShowcase(image, for: task)
+            }
             coverImages[task.id] = displayImage
         } catch {
             return
         }
+    }
+
+    private func loadShowcaseCoverImageIfNeeded(for task: ConversionTask) async {
+        guard
+            (task.status == .succeeded || task.status == .succeededWithWarnings),
+            showcaseCoverImages[task.id] == nil,
+            !loadingShowcaseCoverTaskIDs.contains(task.id),
+            let outputURL = task.outputURL,
+            FileManager.default.fileExists(atPath: outputURL.path)
+        else {
+            return
+        }
+
+        if let cachedImage = coverThumbnailCache.showcaseImage(for: task) {
+            showcaseCoverImages[task.id] = cachedImage
+            return
+        }
+
+        loadingShowcaseCoverTaskIDs.insert(task.id)
+        defer { loadingShowcaseCoverTaskIDs.remove(task.id) }
+        let extractionDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MobiVerseShowcaseCoverCache", isDirectory: true)
+            .appendingPathComponent(task.id.uuidString, isDirectory: true)
+
+        do {
+            guard
+                let coverURL = try await EpubCoverImageExtractor().coverImageURL(
+                    epubURL: outputURL,
+                    extractionDirectory: extractionDirectory
+                ),
+                let image = NSImage(contentsOf: coverURL)
+            else {
+                return
+            }
+            coverThumbnailCache.saveShowcase(image, for: task)
+            showcaseCoverImages[task.id] = coverThumbnailCache.showcaseImage(for: task) ?? image
+        } catch {
+            return
+        }
+    }
+
+    private func loadBookMetadataIfNeeded(for task: ConversionTask) async {
+        guard
+            (task.status == .succeeded || task.status == .succeededWithWarnings),
+            bookMetadata[task.id] == nil,
+            !loadingMetadataTaskIDs.contains(task.id),
+            let outputURL = task.outputURL,
+            FileManager.default.fileExists(atPath: outputURL.path)
+        else {
+            return
+        }
+
+        if let cachedMetadata = bookMetadataCache.metadata(for: task) {
+            bookMetadata[task.id] = cachedMetadata
+            return
+        }
+
+        loadingMetadataTaskIDs.insert(task.id)
+        defer { loadingMetadataTaskIDs.remove(task.id) }
+        do {
+            guard let metadata = try await EpubMetadataExtractor().metadata(epubURL: outputURL) else { return }
+            bookMetadataCache.save(metadata, for: task)
+            bookMetadata[task.id] = metadata
+        } catch {
+            return
+        }
+    }
+
+    private func discardPresentationAssets(for task: ConversionTask) {
+        coverImages[task.id] = nil
+        showcaseCoverImages[task.id] = nil
+        bookMetadata[task.id] = nil
+        coverThumbnailCache.removeImage(for: task)
+        bookMetadataCache.removeMetadata(for: task)
     }
 
     private func message(for error: FileOutputPolicyError) -> String {

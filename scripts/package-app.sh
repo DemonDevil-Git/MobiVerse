@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="MobiVerse"
 EXECUTABLE_NAME="Mobi2EpubTransfer"
-APP_VERSION="${APP_VERSION:-2.3.1}"
-APP_BUILD="${APP_BUILD:-12}"
+APP_VERSION="${APP_VERSION:-2.4.0}"
+APP_BUILD="${APP_BUILD:-13}"
 CALIBRE_APP="${CALIBRE_APP:-/Applications/calibre.app}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER:-com.mobiverse.app}"
@@ -86,6 +86,9 @@ mkdir -p "$MACOS_DIR" "$THIRD_PARTY_DIR"
 cp "$BINARY_PATH" "$MACOS_DIR/$EXECUTABLE_NAME"
 cp "$ROOT_DIR/Sources/Mobi2EpubTransfer/Resources/"*.png "$RESOURCES_DIR/"
 /usr/bin/ditto "$RESOURCE_BUNDLE_PATH" "$RESOURCE_BUNDLE_DESTINATION"
+if [[ -d "$ROOT_DIR/Sources/Mobi2EpubTransfer/Resources/zh-Hans.lproj" ]]; then
+  /usr/bin/ditto "$ROOT_DIR/Sources/Mobi2EpubTransfer/Resources/zh-Hans.lproj" "$RESOURCES_DIR/zh-Hans.lproj"
+fi
 if [[ -f "$APP_ICON" ]]; then
   cp "$APP_ICON" "$RESOURCES_DIR/AppIcon.icns"
 fi
@@ -122,6 +125,11 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <string>$BUNDLE_IDENTIFIER</string>
   <key>CFBundleDisplayName</key>
   <string>$APP_NAME</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>zh-Hans</string>
+  </array>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleIconFile</key>

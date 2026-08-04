@@ -41,6 +41,7 @@ final class BrowserModel: ObservableObject, Identifiable {
         }
         guard let url = URL(string: candidate), ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return }
         showsHome = false
+        isLoading = true
         address = url.absoluteString
         webView?.load(URLRequest(url: url))
     }
@@ -49,6 +50,7 @@ final class BrowserModel: ObservableObject, Identifiable {
         webView?.stopLoading()
         address = ""
         pageTitle = "New tab"
+        isLoading = false
         showsHome = true
     }
 
@@ -120,6 +122,15 @@ struct BrowserDownloadItem: Identifiable, Codable {
     var sourceURL: URL?
     var localURL: URL?
     var errorMessage: String?
+
+    var normalizedProgress: Double {
+        guard progress.isFinite else { return 0 }
+        return min(max(progress, 0), 1)
+    }
+
+    var progressPercentage: String {
+        "\(Int((normalizedProgress * 100).rounded()))%"
+    }
 }
 
 @MainActor
@@ -130,7 +141,7 @@ final class BrowserDownloadManager: NSObject, ObservableObject, WKDownloadDelega
 
     private var downloads: [UUID: WKDownload] = [:]
     private var identifiers: [ObjectIdentifier: UUID] = [:]
-    private var observations: [UUID: NSKeyValueObservation] = [:]
+    private var progressSubscriptions: [UUID: AnyCancellable] = [:]
     private var resumeData: [UUID: Data] = [:]
     private var pausing: Set<UUID> = []
     private let defaults = UserDefaults.standard
@@ -237,14 +248,24 @@ final class BrowserDownloadManager: NSObject, ObservableObject, WKDownloadDelega
     }
 
     func cancel(_ item: BrowserDownloadItem) {
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+
+        let partial = partialDownloadURL(id: item.id, filename: items[index].filename)
+        items[index].state = .cancelled
+        items[index].errorMessage = nil
+        progressSubscriptions[item.id] = nil
+        resumeData[item.id] = nil
+        pausing.remove(item.id)
+
         if let download = downloads[item.id] {
-            download.cancel()
-        } else if resumeData[item.id] != nil {
-            resumeData[item.id] = nil
-            if let index = items.firstIndex(where: { $0.id == item.id }) {
-                items[index].state = .cancelled
+            downloads[item.id] = nil
+            identifiers[ObjectIdentifier(download)] = nil
+            download.cancel { _ in
+                try? FileManager.default.removeItem(at: partial)
             }
         }
+
+        try? FileManager.default.removeItem(at: partial)
     }
 
     func pause(_ item: BrowserDownloadItem) {
@@ -291,18 +312,50 @@ final class BrowserDownloadManager: NSObject, ObservableObject, WKDownloadDelega
     }
 
     private func update(id: UUID, progress: Double) {
-        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        guard
+            let index = items.firstIndex(where: { $0.id == id }),
+            items[index].state == .downloading
+        else {
+            return
+        }
         items[index].progress = progress
     }
 
+    private func partialDownloadURL(id: UUID, filename: String) -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("MobiVerseBrowserDownloads", isDirectory: true)
+            .appendingPathComponent("\(id.uuidString)-\(filename).download")
+    }
+
     private func observeProgress(of download: WKDownload, id: UUID) {
-        observations[id] = download.progress.observe(\.fractionCompleted, options: [.initial, .new]) { [weak self] progress, _ in
-            Task { @MainActor in self?.update(id: id, progress: progress.fractionCompleted) }
-        }
+        let rawProgress = download.progress
+            .publisher(for: \.fractionCompleted, options: [.initial, .new])
+            .eraseToAnyPublisher()
+        let normalizedProgress = rawProgress
+            .map { progress -> Double in
+                guard progress.isFinite else { return 0 }
+                if progress < 0 { return 0 }
+                if progress > 1 { return 1 }
+                return progress
+            }
+            .eraseToAnyPublisher()
+        let percentChanges = normalizedProgress
+            // The UI displays whole percentages, so publishing every network
+            // chunk only floods the main actor without adding visible detail.
+            .removeDuplicates { previous, current in
+                Int((previous * 100).rounded(.down)) == Int((current * 100).rounded(.down))
+            }
+            .eraseToAnyPublisher()
+
+        progressSubscriptions[id] = percentChanges
+            .throttle(for: .milliseconds(125), scheduler: RunLoop.main, latest: true)
+            .sink { [weak self] progress in
+                Task { @MainActor in self?.update(id: id, progress: progress) }
+            }
     }
 
     private func cleanup(id: UUID, download: WKDownload) {
-        observations[id] = nil
+        progressSubscriptions[id] = nil
         downloads[id] = nil
         identifiers[ObjectIdentifier(download)] = nil
     }
@@ -346,7 +399,7 @@ struct BrowserWorkspace: View {
     @ObservedObject var downloads: BrowserDownloadManager
     @AppStorage(BrowserPDFHandling.storageKey) private var pdfHandlingRawValue = BrowserPDFHandling.download.rawValue
     @State private var bookmarks: [BrowserBookmark] = Self.loadBookmarks()
-    @State private var showsDownloads = true
+    @State private var showsDownloads = false
     @State private var showsSettings = false
     let onBookDownloaded: (URL) -> Void
 
@@ -356,6 +409,12 @@ struct BrowserWorkspace: View {
     }
     private var addressBinding: Binding<String> {
         Binding(get: { model.address }, set: { model.address = $0 })
+    }
+    private var activeDownloadID: UUID? {
+        downloads.items.first(where: { $0.state == .downloading })?.id
+    }
+    private var activeDownloadCount: Int {
+        downloads.items.lazy.filter { $0.state == .downloading }.count
     }
 
     var body: some View {
@@ -372,14 +431,23 @@ struct BrowserWorkspace: View {
                     downloads: downloads,
                     automaticallyDownloadsPDFs: pdfHandling == .download
                 )
+                .id(model.id)
                 if model.showsHome { homePage }
             }
-            if showsDownloads { downloadShelf }
+            if showsDownloads {
+                downloadShelf
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .foregroundStyle(BrowserPalette.ink)
         .background(BrowserPalette.paper)
         .animation(.easeInOut(duration: 0.18), value: bookmarks)
+        .animation(.easeInOut(duration: 0.2), value: showsDownloads)
         .onAppear { downloads.onValidatedBook = onBookDownloaded }
+        .onChange(of: activeDownloadID) { _, newValue in
+            guard newValue != nil else { return }
+            showsDownloads = true
+        }
         .sheet(isPresented: $showsSettings) {
             BrowserSettingsView(
                 bookmarks: $bookmarks,
@@ -388,6 +456,7 @@ struct BrowserWorkspace: View {
             ) {
                 saveBookmarks()
             }
+            .environment(\.locale, AppLanguagePreference.selected.locale)
         }
         .alert("Download unavailable", isPresented: Binding(get: { downloads.errorMessage != nil }, set: { if !$0 { downloads.errorMessage = nil } })) {
             Button("OK", role: .cancel) { downloads.errorMessage = nil }
@@ -403,7 +472,7 @@ struct BrowserWorkspace: View {
                             Button {
                                 tabs.activeID = tab.id
                             } label: {
-                                Label(tab.pageTitle, systemImage: "globe")
+                                Label(L10n.string(tab.pageTitle), systemImage: "globe")
                                     .lineLimit(1)
                                     .frame(maxWidth: 180, alignment: .leading)
                             }
@@ -425,7 +494,21 @@ struct BrowserWorkspace: View {
             Button { tabs.newTab() } label: { Image(systemName: "plus") }
                 .help("New tab")
             Spacer()
-            Button { showsDownloads.toggle() } label: { Label("Downloads", systemImage: "arrow.down.circle") }
+            Button { showsDownloads.toggle() } label: {
+                Label {
+                    Text("Downloads")
+                } icon: {
+                    BrowserDownloadActivityIcon(isActive: activeDownloadCount > 0)
+                }
+            }
+            .accessibilityLabel(
+                Text(activeDownloadCount == 0
+                    ? L10n.string("Downloads")
+                    : L10n.format("Downloads, %lld in progress", activeDownloadCount))
+            )
+            .help(activeDownloadCount == 0
+                ? L10n.string("Downloads")
+                : L10n.format("%lld downloads in progress", activeDownloadCount))
             Button { showsSettings = true } label: { Image(systemName: "gearshape") }
         }
         .buttonStyle(.borderless)
@@ -438,9 +521,26 @@ struct BrowserWorkspace: View {
             Button { model.webView?.goBack() } label: { Image(systemName: "chevron.left") }.disabled(!model.canGoBack)
             Button { model.webView?.goForward() } label: { Image(systemName: "chevron.right") }.disabled(!model.canGoForward)
             Button {
-                if model.isLoading { model.webView?.stopLoading() }
-                else { _ = model.webView?.reload() }
-            } label: { Image(systemName: model.isLoading ? "xmark" : "arrow.clockwise") }
+                if model.isLoading {
+                    model.webView?.stopLoading()
+                    model.isLoading = false
+                } else {
+                    model.isLoading = true
+                    _ = model.webView?.reload()
+                }
+            } label: {
+                Group {
+                    if model.isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                .frame(width: 16, height: 16)
+            }
+            .help(L10n.string(model.isLoading ? "Stop loading" : "Reload"))
+            .accessibilityLabel(L10n.string(model.isLoading ? "Stop loading" : "Reload"))
             Button { model.home() } label: { Image(systemName: "house") }
             TextField("Search or enter address", text: addressBinding)
                 .textFieldStyle(.roundedBorder)
@@ -453,8 +553,8 @@ struct BrowserWorkspace: View {
                     .frame(width: 24, height: 24)
             }
             .disabled(currentPageURL == nil)
-            .help(isCurrentPageBookmarked ? "Remove bookmark" : "Bookmark this page")
-            .accessibilityLabel(isCurrentPageBookmarked ? "Remove bookmark" : "Bookmark this page")
+            .help(L10n.string(isCurrentPageBookmarked ? "Remove bookmark" : "Bookmark this page"))
+            .accessibilityLabel(L10n.string(isCurrentPageBookmarked ? "Remove bookmark" : "Bookmark this page"))
         }
         .buttonStyle(.borderless)
         .padding(10)
@@ -570,8 +670,24 @@ struct BrowserWorkspace: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(item.filename).font(.caption.weight(.semibold)).lineLimit(1)
                                 Text(item.sourceHost).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                                if item.state == .downloading { ProgressView(value: item.progress) }
-                                else { Text(item.state.rawValue.capitalized).font(.caption2).foregroundStyle(item.state == .finished ? .green : .red) }
+                                if item.state == .downloading || item.state == .paused {
+                                    HStack(spacing: 8) {
+                                        ProgressView(value: item.normalizedProgress)
+                                            .accessibilityLabel("Download progress")
+                                            .accessibilityValue(item.progressPercentage)
+                                        Text(item.progressPercentage)
+                                            .font(.caption2.monospacedDigit().weight(.medium))
+                                            .foregroundStyle(.secondary)
+                                            .frame(minWidth: 30, alignment: .trailing)
+                                    }
+                                    if item.state == .paused {
+                                        Text("Paused").font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                } else {
+                                    Text(L10n.string(item.state.rawValue.capitalized))
+                                        .font(.caption2)
+                                        .foregroundStyle(item.state == .finished ? .green : .red)
+                                }
                                 HStack(spacing: 8) {
                                     if item.state == .downloading {
                                         Button("Pause") { downloads.pause(item) }
@@ -665,6 +781,24 @@ struct BrowserWorkspace: View {
     }
 }
 
+private struct BrowserDownloadActivityIcon: View {
+    let isActive: Bool
+
+    @ViewBuilder
+    var body: some View {
+        if isActive {
+            ProgressView()
+                .progressViewStyle(.circular)
+                .controlSize(.small)
+                .frame(width: 16, height: 16)
+                .accessibilityHidden(true)
+        } else {
+            Image(systemName: "arrow.down.circle")
+                .frame(width: 16, height: 16)
+        }
+    }
+}
+
 private struct BrowserWebView: NSViewRepresentable {
     @ObservedObject var model: BrowserModel
     @ObservedObject var downloads: BrowserDownloadManager
@@ -716,10 +850,10 @@ private struct BrowserWebView: NSViewRepresentable {
             let scheme = url.scheme?.lowercased() ?? ""
             guard ["http", "https", "about"].contains(scheme) else {
                 let alert = NSAlert()
-                alert.messageText = "Open external application?"
+                alert.messageText = L10n.string("Open external application?")
                 alert.informativeText = url.absoluteString
-                alert.addButton(withTitle: "Open")
-                alert.addButton(withTitle: "Cancel")
+                alert.addButton(withTitle: L10n.string("Open"))
+                alert.addButton(withTitle: L10n.string("Cancel"))
                 if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(url) }
                 decisionHandler(.cancel)
                 return
@@ -972,7 +1106,7 @@ private struct BrowserSettingsView: View {
             title: "Bookmarks",
             subtitle: bookmarks.isEmpty
                 ? "Keep trusted libraries and reading sources close at hand."
-                : "\(bookmarks.count) saved \(bookmarks.count == 1 ? "destination" : "destinations") on your browser home page."
+                : L10n.format("%lld saved destinations on your browser home page.", bookmarks.count)
         ) {
             VStack(spacing: 10) {
                 if bookmarks.isEmpty {
@@ -998,7 +1132,7 @@ private struct BrowserSettingsView: View {
                 }
 
                 Button {
-                    bookmarks.append(BrowserBookmark(title: "New bookmark", url: "https://"))
+                    bookmarks.append(BrowserBookmark(title: L10n.string("New bookmark"), url: "https://"))
                 } label: {
                     Label("Add bookmark", systemImage: "plus")
                         .font(.callout.weight(.semibold))
@@ -1058,7 +1192,7 @@ private struct BrowserSettingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Website data")
                         .font(.callout.weight(.semibold))
-                    Text(privacyMessage ?? "Clears cookies, cached files, and browsing history.")
+                    Text(privacyMessage ?? L10n.string("Clears cookies, cached files, and browsing history."))
                         .font(.caption)
                         .foregroundStyle(privacyMessage == nil ? BrowserPalette.ink.opacity(0.56) : BrowserPalette.sage)
                 }
@@ -1094,7 +1228,7 @@ private struct BrowserSettingsView: View {
         let types = WKWebsiteDataStore.allWebsiteDataTypes()
         WKWebsiteDataStore.default().removeData(ofTypes: types, modifiedSince: .distantPast) {
             Task { @MainActor in
-                privacyMessage = "Browser data cleared. Your books and bookmarks are safe."
+                privacyMessage = L10n.string("Browser data cleared. Your books and bookmarks are safe.")
             }
         }
     }
@@ -1109,8 +1243,8 @@ private enum BrowserPDFHandling: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .download: "Download automatically"
-        case .preview: "Preview in browser"
+        case .download: L10n.string("Download automatically")
+        case .preview: L10n.string("Preview in browser")
         }
     }
 }
@@ -1124,9 +1258,9 @@ private enum BrowserSettingsSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .downloads: "Downloads"
-        case .bookmarks: "Bookmarks"
-        case .privacy: "Privacy"
+        case .downloads: L10n.string("Downloads")
+        case .bookmarks: L10n.string("Bookmarks")
+        case .privacy: L10n.string("Privacy")
         }
     }
 
@@ -1167,9 +1301,9 @@ private struct BrowserSettingsCard<Content: View>: View {
                 .frame(width: 38, height: 38)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
+                    Text(L10n.string(title))
                         .font(.system(size: 17, weight: .semibold, design: .serif))
-                    Text(subtitle)
+                    Text(L10n.string(subtitle))
                         .font(.caption)
                         .foregroundStyle(BrowserPalette.ink.opacity(0.56))
                         .fixedSize(horizontal: false, vertical: true)

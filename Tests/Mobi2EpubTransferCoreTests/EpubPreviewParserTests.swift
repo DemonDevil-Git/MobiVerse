@@ -92,6 +92,26 @@ struct EpubPreviewParserTests {
     }
 
     @Test
+    func extractsRichMetadataForShelfDetails() async throws {
+        let directory = try TemporaryDirectory()
+        let bookDirectory = directory.url.appendingPathComponent("metadata-book")
+        try createMinimalEPUBDirectory(at: bookDirectory, imagePageCount: 0)
+        let epubURL = try await zipEPUBDirectory(
+            bookDirectory,
+            outputURL: directory.url.appendingPathComponent("metadata.epub")
+        )
+
+        let metadata = try await EpubMetadataExtractor().metadata(epubURL: epubURL)
+
+        #expect(metadata?.title == "Preview Text")
+        #expect(metadata?.creators == ["Ursula Writer", "Devon Artist"])
+        #expect(metadata?.publisher == "MobiVerse Press")
+        #expect(metadata?.language == "en")
+        #expect(metadata?.description == "A quiet & elegant shelf test.")
+        #expect(metadata?.subjects == ["Fiction", "Design"])
+    }
+
+    @Test
     func textEPUBIncludesEverySpineDocumentAndIsNotMistakenForComic() async throws {
         let directory = try TemporaryDirectory()
         let bookDirectory = directory.url.appendingPathComponent("illustrated-text-book")
@@ -137,6 +157,29 @@ struct EpubPreviewParserTests {
         )
 
         #expect(coverURL?.lastPathComponent == "cover.jpg")
+        let extractedEntries = try FileManager.default.contentsOfDirectory(atPath: extractionDirectory.path)
+        #expect(extractedEntries == ["cover.jpg"])
+    }
+
+    @Test
+    func extractsCoverFromFirstSpineWithoutExpandingTheEPUB() async throws {
+        let directory = try TemporaryDirectory()
+        let bookDirectory = directory.url.appendingPathComponent("spine-cover-book")
+        try createIllustratedTextEPUBDirectory(at: bookDirectory)
+        let epubURL = try await zipEPUBDirectory(
+            bookDirectory,
+            outputURL: directory.url.appendingPathComponent("spine-cover.epub")
+        )
+        let extractionDirectory = directory.url.appendingPathComponent("spine-cover-preview")
+
+        let coverURL = try await EpubCoverImageExtractor().coverImageURL(
+            epubURL: epubURL,
+            extractionDirectory: extractionDirectory
+        )
+
+        #expect(coverURL?.lastPathComponent == "cover.jpg")
+        let extractedEntries = try FileManager.default.contentsOfDirectory(atPath: extractionDirectory.path)
+        #expect(extractedEntries == ["cover.jpg"])
     }
 
     private func createMinimalEPUBDirectory(at directory: URL, imagePageCount: Int) throws {
@@ -312,6 +355,13 @@ struct EpubPreviewParserTests {
         <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
           <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
             <dc:title>Preview Text</dc:title>
+            <dc:creator>Ursula Writer</dc:creator>
+            <dc:creator>Devon Artist</dc:creator>
+            <dc:publisher>MobiVerse Press</dc:publisher>
+            <dc:language>en</dc:language>
+            <dc:description>A quiet &amp; elegant shelf test.</dc:description>
+            <dc:subject>Fiction</dc:subject>
+            <dc:subject>Design</dc:subject>
           </metadata>
           <manifest>
             <item id="chapter" href="pages/chapter.xhtml" media-type="application/xhtml+xml"/>
