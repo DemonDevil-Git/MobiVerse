@@ -195,7 +195,8 @@ if command -v codesign >/dev/null 2>&1; then
 fi
 
 for resource_name in hero-books-background reading-still-life; do
-  if [[ ! -f "$RESOURCES_DIR/$resource_name.png" || ! -f "$RESOURCE_BUNDLE_DESTINATION/$resource_name.png" ]]; then
+  if [[ ! -f "$RESOURCES_DIR/$resource_name.png" \
+     || ! -f "$RESOURCE_BUNDLE_DESTINATION/$resource_name.png" ]]; then
     echo "Required app resource was not packaged: $resource_name.png" >&2
     exit 1
   fi
@@ -212,6 +213,10 @@ if [[ ! -f "$THIRD_PARTY_DIR/epubcheck/epubcheck.jar" \
    || ! -x "$THIRD_PARTY_DIR/java/bin/java" ]]; then
   echo "Packaged app is missing bundled EPUBCheck." >&2
   exit 1
+fi
+
+if [[ "${SKIP_APP_SMOKE_TEST:-0}" != "1" ]]; then
+  bash "$ROOT_DIR/scripts/smoke-test-app.sh" "$APP_DIR"
 fi
 
 echo "Packaged app: $APP_DIR"

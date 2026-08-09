@@ -44,11 +44,31 @@ enum AppLanguagePreference: String, CaseIterable, Identifiable {
 }
 
 enum L10n {
+    private static let resourceBundleName = "Mobi2EpubTransfer_Mobi2EpubTransfer.bundle"
+
+    private static var localizationContainers: [Bundle] {
+        var containers = [Bundle.main]
+        let candidateURLs = [
+            Bundle.main.bundleURL.appendingPathComponent(resourceBundleName, isDirectory: true),
+            Bundle.main.resourceURL?.appendingPathComponent(resourceBundleName, isDirectory: true),
+            Bundle.main.executableURL?
+                .deletingLastPathComponent()
+                .appendingPathComponent(resourceBundleName, isDirectory: true)
+        ].compactMap { $0 }
+
+        for url in candidateURLs {
+            if let bundle = Bundle(url: url), !containers.contains(where: { $0.bundleURL == bundle.bundleURL }) {
+                containers.append(bundle)
+            }
+        }
+        return containers
+    }
+
     static func string(_ key: String) -> String {
         let language = AppLanguagePreference.selected.localizationIdentifier
         guard language != "en" else { return key }
 
-        for container in [Bundle.module, Bundle.main] {
+        for container in localizationContainers {
             guard
                 let path = container.path(forResource: language, ofType: "lproj"),
                 let localizedBundle = Bundle(path: path)
