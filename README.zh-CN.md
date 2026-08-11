@@ -21,7 +21,7 @@
 
 ## 产品演示
 
-https://github.com/user-attachments/assets/427211b2-d7e3-437f-953c-f616561413ca
+https://github.com/user-attachments/assets/485accd5-569d-45ed-b25f-5643ba96d3fc
 
 观看[官网演示](https://mobiverse-coral.vercel.app/#demo)，或从 GitHub Releases 下载官方 [H.264 MP4](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo.mp4) 与[原始 HEVC MOV](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo-Original.mov)。
 
