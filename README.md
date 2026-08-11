@@ -21,11 +21,21 @@
 
 ## Product Demo
 
-<p align="center">
-  <a href="https://mobiverse-coral.vercel.app/#demo"><img src="https://mobiverse-coral.vercel.app/assets/mobiverse-demo-poster.jpg" alt="Watch the 51-second MobiVerse product demo" width="100%"></a>
-</p>
+https://github.com/user-attachments/assets/427211b2-d7e3-437f-953c-f616561413ca
 
 Watch the [web demo](https://mobiverse-coral.vercel.app/#demo), or download the official [H.264 MP4](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo.mp4) and [original HEVC MOV](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo-Original.mov) from GitHub Releases.
+
+## What's New in MobiVerse 2.4.1
+
+Released on August 11, 2026, MobiVerse 2.4.1 (14) is a macOS reliability and workspace-layout update:
+
+- **Reliable first launch for new installations** — packaged localization resources now resolve from their installed location, fixing the crash that could occur the first time a new user opened the app.
+- **Correct Browse toolbar order** — the new-tab `+` button stays in the trailing action area immediately to the left of Downloads.
+- **Centered Chinese workspace control** — the Shelf/Browse selector fills its available width so the shorter Simplified Chinese labels no longer pull it visibly left.
+- **Stronger release validation** — packaging checks now launch both the packaged app and the app inside the final mounted DMG with fresh preferences and require a sustained stability window.
+- **Verified release** — 51 automated tests passed across 14 suites; the DMG also passed integrity and strict code-signature verification.
+
+[Read the complete MobiVerse 2.4.1 release notes](https://github.com/DemonDevil-Git/MobiVerse/releases/tag/v2.4.1).
 
 ## Product Showcase
 

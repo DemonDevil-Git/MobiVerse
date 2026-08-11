@@ -21,11 +21,21 @@
 
 ## 产品演示
 
-<p align="center">
-  <a href="https://mobiverse-coral.vercel.app/#demo"><img src="https://mobiverse-coral.vercel.app/assets/mobiverse-demo-poster.jpg" alt="观看 51 秒 MobiVerse 产品演示" width="100%"></a>
-</p>
+https://github.com/user-attachments/assets/427211b2-d7e3-437f-953c-f616561413ca
 
 观看[官网演示](https://mobiverse-coral.vercel.app/#demo)，或从 GitHub Releases 下载官方 [H.264 MP4](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo.mp4) 与[原始 HEVC MOV](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo-Original.mov)。
+
+## MobiVerse 2.4.1 更新说明
+
+MobiVerse 2.4.1 (14) 发布于 2026 年 8 月 11 日，重点提升 macOS 首次启动可靠性与工作区布局：
+
+- **修复新安装后的首次启动闪退**：本地化资源会从安装包中的真实位置安全加载，新用户第一次打开不再因开发环境资源路径失效而退出。
+- **修正 Browse 工具栏顺序**：新增标签页的 `+` 按钮始终位于右侧操作区，并紧邻下载按钮左边。
+- **重新居中中文工作区控件**：“书架 / 浏览”选择器占满可用宽度，较短的中文标签不会再让控件明显偏左。
+- **加强正式包启动验证**：打包检查会使用全新偏好设置分别启动打包后的 App 和最终 DMG 内的 App，并要求两者持续稳定运行。
+- **完整验证通过**：14 个测试套件中的 51 项自动化测试全部通过，DMG 同时通过完整性与严格代码签名验证。
+
+[查看 MobiVerse 2.4.1 完整发布说明](https://github.com/DemonDevil-Git/MobiVerse/releases/tag/v2.4.1)。
 
 ## 产品展示
 
