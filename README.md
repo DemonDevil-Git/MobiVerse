@@ -19,6 +19,14 @@
   <strong>No Calibre installation required for readers.</strong> Best for manga, illustrated Kindle books, comic archives, and Apple Books-friendly EPUB output.
 </p>
 
+## Product Demo
+
+<p align="center">
+  <a href="https://mobiverse-coral.vercel.app/#demo"><img src="https://mobiverse-coral.vercel.app/assets/mobiverse-demo-poster.jpg" alt="Watch the 51-second MobiVerse product demo" width="100%"></a>
+</p>
+
+Watch the [web demo](https://mobiverse-coral.vercel.app/#demo), or download the official [H.264 MP4](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo.mp4) from GitHub Releases.
+
 ## Product Showcase
 
 <p align="center">

@@ -14,6 +14,8 @@ MobiVerse 2.4.1 (14), released on 2026-08-11, fixes a first-launch crash caused 
 ## Product
 
 - [Product overview](https://mobiverse-coral.vercel.app/): Features, supported formats, privacy, screenshots, and platform information.
+- [51-second product demo](https://mobiverse-coral.vercel.app/#demo): Interactive 3D shelf, workspace switching, tabbed browsing, and the download flow.
+- [Direct demo video (MP4)](https://mobiverse-coral.vercel.app/assets/mobiverse-demo.mp4): Web-compatible H.264 video without narration.
 - [Download MobiVerse](https://mobiverse-coral.vercel.app/download/): Stable download page that resolves the latest official GitHub release.
 - [Source code](https://github.com/DemonDevil-Git/MobiVerse): GPLv3 source code and technical documentation.
 - [Latest release](https://github.com/DemonDevil-Git/MobiVerse/releases/latest): Current release notes and official assets.

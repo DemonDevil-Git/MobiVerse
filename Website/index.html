@@ -14,6 +14,10 @@
   <meta property="og:description" content="在本机把 MOBI、AZW3、CBZ、CBR 和 PDF 转换成适合 Apple Books 与现代阅读器的 EPUB。">
   <meta property="og:url" content="https://mobiverse-coral.vercel.app/">
   <meta property="og:image" content="https://mobiverse-coral.vercel.app/assets/product-showcase-refined.png">
+  <meta property="og:video" content="https://mobiverse-coral.vercel.app/assets/mobiverse-demo.mp4">
+  <meta property="og:video:type" content="video/mp4">
+  <meta property="og:video:width" content="1600">
+  <meta property="og:video:height" content="1212">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="MobiVerse — Local ebook and comic converter">
   <meta name="twitter:description" content="Convert Kindle books, comic archives, and PDF comics into polished EPUBs without uploading your files.">
@@ -77,6 +81,18 @@
         }
       },
       {
+        "@type": "VideoObject",
+        "@id": "https://mobiverse-coral.vercel.app/#demo-video",
+        "name": "MobiVerse product demo",
+        "description": "A 51-second tour of MobiVerse's interactive bookshelf and built-in browser workspace.",
+        "thumbnailUrl": "https://mobiverse-coral.vercel.app/assets/mobiverse-demo-poster.jpg",
+        "contentUrl": "https://mobiverse-coral.vercel.app/assets/mobiverse-demo.mp4",
+        "embedUrl": "https://mobiverse-coral.vercel.app/#demo",
+        "uploadDate": "2026-08-11",
+        "duration": "PT51S",
+        "inLanguage": ["zh-CN", "en"]
+      },
+      {
         "@type": "FAQPage",
         "@id": "https://mobiverse-coral.vercel.app/#faq",
         "mainEntity": [
@@ -133,6 +149,7 @@
 
       <nav class="site-nav" id="site-nav" aria-label="主导航" data-nav data-i18n-aria-label="mainNav">
         <a href="#product" data-i18n="nav.product">产品</a>
+        <a href="#demo" data-i18n="nav.demo">演示</a>
         <a href="#workflow" data-i18n="nav.workflow">工作流</a>
         <a href="#features" data-i18n="nav.features">功能</a>
         <a href="/guides/" data-i18n="nav.guides">使用指南</a>
@@ -264,6 +281,29 @@
             <p data-i18n="product.pillar3Body">保留转换历史、真实封面和状态信息；界面不展示完整的本地文件路径。</p>
           </article>
         </div>
+      </div>
+    </section>
+
+    <section class="demo-section section" id="demo" aria-labelledby="demo-title">
+      <div class="shell">
+        <div class="section-heading split-heading" data-reveal>
+          <div>
+            <p class="eyebrow light-eyebrow"><span></span> <b data-i18n="demo.eyebrow">51 秒产品演示</b></p>
+            <h2 id="demo-title" data-i18n-html="demo.title">从立体书架，<br>走进内置浏览空间。</h2>
+          </div>
+          <p data-i18n="demo.lead">观看 MobiVerse 的交互式 3D 书架、工作区切换、标签浏览和下载流程。无需离开应用，也不必把本地图书交给云端。</p>
+        </div>
+
+        <figure class="demo-player" data-reveal>
+          <video controls playsinline preload="metadata" poster="assets/mobiverse-demo-poster.jpg" aria-label="MobiVerse 产品演示视频" data-i18n-aria-label="demo.videoLabel">
+            <source src="assets/mobiverse-demo.mp4" type="video/mp4">
+            <a href="assets/mobiverse-demo.mp4" data-i18n="demo.fallback">下载 MobiVerse 演示视频</a>
+          </video>
+          <figcaption>
+            <span data-i18n="demo.caption">真实产品操作 · 51 秒 · 无配音</span>
+            <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/tag/v2.4.1"><span data-i18n="demo.github">在 GitHub 获取演示视频</span> <span aria-hidden="true">↗</span></a>
+          </figcaption>
+        </figure>
       </div>
     </section>
 

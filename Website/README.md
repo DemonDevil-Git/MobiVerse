@@ -17,11 +17,12 @@ python3 -m http.server 4173 --directory Website
 - `guides/`：面向具体转换问题的独立可索引指南
 - `robots.txt`、`sitemap.xml`、`llms.txt`：搜索与 AI 发现入口
 - `content.css`、`release.js`：内容页样式与最新版本解析
-- `assets/`：生成式首屏底图与产品素材
+- `assets/`：生成式首屏底图、产品素材、演示视频与视频海报
 
 ## 发布维护
 
 - 新版本发布后，下载页会自动读取 GitHub 最新 Release。
+- 首页演示区使用 `assets/mobiverse-demo.mp4`（H.264）和 `assets/mobiverse-demo-poster.jpg`，网页兼容版视频同时保存到 GitHub Release。
 - `download/index.html` 中保留当前已验证版本作为 GitHub API 不可用时的回退。
 - 新增或删除指南时同步更新 `sitemap.xml` 和 `llms.txt`。
 

@@ -19,6 +19,14 @@
   <strong>普通用户无需单独安装 Calibre。</strong> 适合漫画、图像型 Kindle 书籍、漫画压缩包，以及需要在 Apple Books 中稳定阅读的 EPUB 输出。
 </p>
 
+## 产品演示
+
+<p align="center">
+  <a href="https://mobiverse-coral.vercel.app/#demo"><img src="https://mobiverse-coral.vercel.app/assets/mobiverse-demo-poster.jpg" alt="观看 51 秒 MobiVerse 产品演示" width="100%"></a>
+</p>
+
+观看[官网演示](https://mobiverse-coral.vercel.app/#demo)，或从 GitHub Releases 下载官方 [H.264 MP4](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo.mp4)。
+
 ## 产品展示
 
 <p align="center">
