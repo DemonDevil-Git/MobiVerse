@@ -171,6 +171,7 @@ struct ContentView: View {
                 Label("Browse", systemImage: "globe").tag(AppWorkspace.browser)
             }
             .pickerStyle(.segmented)
+            .frame(maxWidth: .infinity)
             .padding(.bottom, 18)
 
             Button {

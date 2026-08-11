@@ -6,10 +6,10 @@ MobiVerse does not remove DRM. The macOS release bundles the required conversion
 
 ## Current macOS release
 
-MobiVerse 2.4.0 (13), released on 2026-08-04, adds a complete Simplified Chinese interface with an in-app language selector, a responsive interactive 3D shelf, and animated Browse download activity with immediate cancellation. Converting, validating, and newly completed books move to the front of the shelf. Large EPUB cover and metadata extraction is more efficient, and the redundant green completion strip has been removed from 3D covers. The release passed 51 automated tests across 14 suites.
+MobiVerse 2.4.1 (14), released on 2026-08-11, fixes a first-launch crash caused by packaged localization lookup, keeps the Browse new-tab button immediately left of Downloads, and centers the Chinese Shelf/Browse workspace control. Release validation now launches both the packaged app and the final mounted DMG with a fresh preferences directory and requires a sustained stability window. The release passed 51 automated tests across 14 suites.
 
-- [MobiVerse 2.4.0 release notes](https://github.com/DemonDevil-Git/MobiVerse/releases/tag/v2.4.0)
-- [Download MobiVerse 2.4.0 for macOS](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.0/MobiVerse-2.4.0.dmg)
+- [MobiVerse 2.4.1 release notes](https://github.com/DemonDevil-Git/MobiVerse/releases/tag/v2.4.1)
+- [Download MobiVerse 2.4.1 for macOS](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1.dmg)
 
 ## Product
 

@@ -491,9 +491,9 @@ struct BrowserWorkspace: View {
                 }
             }
             .frame(maxWidth: 620, alignment: .leading)
+            Spacer()
             Button { tabs.newTab() } label: { Image(systemName: "plus") }
                 .help("New tab")
-            Spacer()
             Button { showsDownloads.toggle() } label: {
                 Label {
                     Text("Downloads")

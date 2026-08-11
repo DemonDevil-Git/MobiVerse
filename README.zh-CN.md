@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.4.0.dmg"><img src="https://img.shields.io/badge/macOS%202.4.0-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse 2.4.0 macOS 版"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.4.1.dmg"><img src="https://img.shields.io/badge/macOS%202.4.1-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse 2.4.1 macOS 版"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.2.0-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="下载 MobiVerse 2.2.0 Windows 版"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC" alt="最新版本"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
@@ -92,12 +92,12 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 
 ### macOS
 
-1. 下载最新 DMG：[MobiVerse-2.4.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.4.0.dmg)。
-2. 打开 `MobiVerse-2.4.0.dmg`。
+1. 下载最新 DMG：[MobiVerse-2.4.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.4.1.dmg)。
+2. 打开 `MobiVerse-2.4.1.dmg`。
 3. 将 `MobiVerse.app` 拖入 `Applications`；系统提示时替换旧版本。
 4. 启动 MobiVerse，把支持的文件拖入窗口，或在 Finder 中选择用 MobiVerse 打开。
 
-当前 macOS 版本为 MobiVerse 2.4.0 (13)，仅支持 Apple Silicon（`arm64`）。
+当前 macOS 版本为 MobiVerse 2.4.1 (14)，仅支持 Apple Silicon（`arm64`）。
 
 ### Windows 11 ARM64
 
@@ -259,7 +259,7 @@ scripts/package-dmg.sh
 生成的安装镜像位于：
 
 ```text
-.build/MobiVerse-2.4.0.dmg
+.build/MobiVerse-2.4.1.dmg
 ```
 
 默认开发构建使用 ad-hoc 签名，适合本地测试；但从互联网下载后会被 macOS Gatekeeper 拦截。

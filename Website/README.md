@@ -25,4 +25,4 @@ python3 -m http.server 4173 --directory Website
 - `download/index.html` 中保留当前已验证版本作为 GitHub API 不可用时的回退。
 - 新增或删除指南时同步更新 `sitemap.xml` 和 `llms.txt`。
 
-当前官网展示的 macOS 正式版本为 MobiVerse 2.4.0（2026-08-04）。首页的“最新版本”、下载页回退信息、结构化数据与 `llms.txt` 应在后续发布时一并更新。
+当前官网展示的 macOS 正式版本为 MobiVerse 2.4.1（2026-08-11）。首页的“最新版本”、下载页回退信息、结构化数据与 `llms.txt` 应在后续发布时一并更新。

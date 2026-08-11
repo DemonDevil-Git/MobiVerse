@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="MobiVerse"
-VERSION="${VERSION:-2.4.0}"
+VERSION="${VERSION:-2.4.1}"
 APP_VERSION="${APP_VERSION:-$VERSION}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 SIGN_DMG_IDENTITY="${SIGN_DMG_IDENTITY:-$SIGN_IDENTITY}"
@@ -69,6 +69,10 @@ if [[ "$NOTARIZE" == "1" ]]; then
   xcrun stapler validate "$DMG_PATH"
 else
   echo "Notarization skipped. Set NOTARIZE=1 for public distribution builds."
+fi
+
+if [[ "${SKIP_DMG_SMOKE_TEST:-0}" != "1" ]]; then
+  bash "$ROOT_DIR/scripts/smoke-test-dmg.sh" "$DMG_PATH"
 fi
 
 echo "Packaged DMG: $DMG_PATH"
