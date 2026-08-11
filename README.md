@@ -21,7 +21,7 @@
 
 ## Product Demo
 
-https://github.com/user-attachments/assets/427211b2-d7e3-437f-953c-f616561413ca
+https://github.com/user-attachments/assets/485accd5-569d-45ed-b25f-5643ba96d3fc
 
 Watch the [web demo](https://mobiverse-coral.vercel.app/#demo), or download the official [H.264 MP4](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo.mp4) and [original HEVC MOV](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo-Original.mov) from GitHub Releases.
 
