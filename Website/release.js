@@ -1,5 +1,14 @@
 const RELEASE_API = "https://api.github.com/repos/DemonDevil-Git/MobiVerse/releases/latest";
-const INSTALLER_EXTENSIONS = [".dmg", ".pkg", ".exe", ".msi", ".msix", ".zip"];
+const INSTALLER_EXTENSIONS = [
+  ".dmg",
+  ".pkg",
+  ".exe",
+  ".msi",
+  ".msix",
+  ".appx",
+  ".appxbundle",
+  ".msixbundle",
+];
 
 const isInstallerAsset = (asset) => {
   const name = asset.name?.toLowerCase();
