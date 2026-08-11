@@ -25,7 +25,7 @@
   <a href="https://mobiverse-coral.vercel.app/#demo"><img src="https://mobiverse-coral.vercel.app/assets/mobiverse-demo-poster.jpg" alt="Watch the 51-second MobiVerse product demo" width="100%"></a>
 </p>
 
-Watch the [web demo](https://mobiverse-coral.vercel.app/#demo), or download the official [H.264 MP4](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo.mp4) from GitHub Releases.
+Watch the [web demo](https://mobiverse-coral.vercel.app/#demo), or download the official [H.264 MP4](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo.mp4) and [original HEVC MOV](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo-Original.mov) from GitHub Releases.
 
 ## Product Showcase
 

@@ -25,7 +25,7 @@
   <a href="https://mobiverse-coral.vercel.app/#demo"><img src="https://mobiverse-coral.vercel.app/assets/mobiverse-demo-poster.jpg" alt="观看 51 秒 MobiVerse 产品演示" width="100%"></a>
 </p>
 
-观看[官网演示](https://mobiverse-coral.vercel.app/#demo)，或从 GitHub Releases 下载官方 [H.264 MP4](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo.mp4)。
+观看[官网演示](https://mobiverse-coral.vercel.app/#demo)，或从 GitHub Releases 下载官方 [H.264 MP4](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo.mp4) 与[原始 HEVC MOV](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo-Original.mov)。
 
 ## 产品展示
 
