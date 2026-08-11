@@ -1,4 +1,10 @@
 const RELEASE_API = "https://api.github.com/repos/DemonDevil-Git/MobiVerse/releases/latest";
+const INSTALLER_EXTENSIONS = [".dmg", ".pkg", ".exe", ".msi", ".msix", ".zip"];
+
+const isInstallerAsset = (asset) => {
+  const name = asset.name?.toLowerCase();
+  return Boolean(name && INSTALLER_EXTENSIONS.some((extension) => name.endsWith(extension)));
+};
 
 const formatBytes = (bytes) => {
   if (!Number.isFinite(bytes) || bytes <= 0) return "";
@@ -14,7 +20,8 @@ fetch(RELEASE_API, { headers: { Accept: "application/vnd.github+json" } })
   })
   .then((release) => {
     const assets = Array.isArray(release.assets) ? release.assets : [];
-    const macAsset = assets.find((asset) => asset.name?.toLowerCase().endsWith(".dmg"));
+    const installerAssets = assets.filter(isInstallerAsset);
+    const macAsset = installerAssets.find((asset) => asset.name?.toLowerCase().endsWith(".dmg"));
     const version = release.tag_name || release.name;
     const published = release.published_at?.slice(0, 10);
 
@@ -32,9 +39,9 @@ fetch(RELEASE_API, { headers: { Accept: "application/vnd.github+json" } })
     });
 
     const assetList = document.querySelector("[data-release-assets]");
-    if (!assetList || assets.length === 0) return;
+    if (!assetList || installerAssets.length === 0) return;
     assetList.replaceChildren(
-      ...assets.map((asset) => {
+      ...installerAssets.map((asset) => {
         const item = document.createElement("li");
         const label = document.createElement("span");
         const link = document.createElement("a");
