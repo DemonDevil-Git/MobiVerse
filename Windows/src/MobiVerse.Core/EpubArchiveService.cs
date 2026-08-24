@@ -9,7 +9,7 @@ public sealed class EpubArchiveService
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
 
-    public string ProcessComicEpub(string epubPath)
+    public string ProcessComicEpub(string epubPath, EpubReadingDirection readingDirection = EpubReadingDirection.RightToLeft)
     {
         var work = NewTemporaryDirectory("MobiVersePostProcess");
         try
@@ -20,12 +20,16 @@ public sealed class EpubArchiveService
                 .OrderBy(path => NaturalKey(Path.GetRelativePath(work, path)), StringComparer.OrdinalIgnoreCase)
                 .ToArray();
             var title = ReadTitle(work) ?? Path.GetFileNameWithoutExtension(epubPath);
-            return BuildFixedLayout(title, images, epubPath);
+            return BuildFixedLayout(title, images, epubPath, readingDirection);
         }
         finally { TryDelete(work); }
     }
 
-    public string BuildFixedLayout(string title, IReadOnlyList<string> imagePaths, string outputPath)
+    public string BuildFixedLayout(
+        string title,
+        IReadOnlyList<string> imagePaths,
+        string outputPath,
+        EpubReadingDirection readingDirection = EpubReadingDirection.RightToLeft)
     {
         if (imagePaths.Count == 0) throw new InvalidDataException("No image pages were found.");
         var work = NewTemporaryDirectory("MobiVerseRebuiltEPUB");
@@ -54,13 +58,14 @@ public sealed class EpubArchiveService
                     Path.Combine(pages, pageName),
                     PageXhtml(title, number, imageName, dimensions.Width, dimensions.Height),
                     new UTF8Encoding(false));
-                manifest.AppendLine($"    <item id=\"image-{number}\" href=\"images/{imageName}\" media-type=\"{MediaType(extension)}\" properties=\"{(number == 1 ? "cover-image" : string.Empty)}\"/>");
-                manifest.AppendLine($"    <item id=\"page-{number}\" href=\"pages/{pageName}\" media-type=\"application/xhtml+xml\"/>");
-                spine.AppendLine($"    <itemref idref=\"page-{number}\"/>");
+                var coverProperty = number == 1 ? " properties=\"cover-image\"" : string.Empty;
+                manifest.AppendLine($"    <item id=\"image-{number}\" href=\"images/{imageName}\" media-type=\"{MediaType(extension)}\"{coverProperty}/>");
+                manifest.AppendLine($"    <item id=\"page-{number}\" href=\"pages/{pageName}\" media-type=\"application/xhtml+xml\" properties=\"svg\"/>");
+                spine.AppendLine($"    <itemref idref=\"page-{number}\" properties=\"rendition:layout-pre-paginated\"/>");
                 nav.AppendLine($"      <li><a href=\"pages/{pageName}\">Page {number}</a></li>");
             }
             File.WriteAllText(Path.Combine(oebps, "nav.xhtml"), NavXhtml(title, nav.ToString()), new UTF8Encoding(false));
-            File.WriteAllText(Path.Combine(oebps, "content.opf"), Opf(title, manifest.ToString(), spine.ToString()), new UTF8Encoding(false));
+            File.WriteAllText(Path.Combine(oebps, "content.opf"), Opf(title, manifest.ToString(), spine.ToString(), readingDirection), new UTF8Encoding(false));
 
             var replacement = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(outputPath))!, $".{Path.GetFileNameWithoutExtension(outputPath)}-{Guid.NewGuid():N}.epub");
             using (var stream = new FileStream(replacement, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
@@ -73,7 +78,8 @@ public sealed class EpubArchiveService
                     AddFile(archive, file, Path.GetRelativePath(work, file).Replace('\\', '/'), CompressionLevel.NoCompression);
             }
             File.Move(replacement, outputPath, true);
-            return $"Comic EPUB post-processing\n--------------------------\nPages: {imagePaths.Count}\nImages: {imagePaths.Count}\nFixed layout: yes\nReading direction: right-to-left";
+            var directionText = readingDirection == EpubReadingDirection.RightToLeft ? "right-to-left" : "left-to-right";
+            return $"Comic EPUB post-processing\n--------------------------\nPages: {imagePaths.Count}\nImages: {imagePaths.Count}\nFixed layout: yes\nReading direction: {directionText}";
         }
         finally { TryDelete(work); }
     }
@@ -123,13 +129,19 @@ public sealed class EpubArchiveService
 {{items}}    </ol></nav></body></html>
 """;
 
-    private static string Opf(string title, string manifest, string spine) => $$"""
+    private static string Opf(string title, string manifest, string spine, EpubReadingDirection readingDirection)
+    {
+        var progression = readingDirection == EpubReadingDirection.RightToLeft ? "rtl" : "ltr";
+        var writingMode = readingDirection == EpubReadingDirection.RightToLeft ? "vertical-rl" : "horizontal-lr";
+        var language = readingDirection == EpubReadingDirection.RightToLeft ? "ja" : "en";
+        return $$"""
 <?xml version="1.0" encoding="utf-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id" prefix="rendition: http://www.idpf.org/vocab/rendition/#"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="book-id">urn:uuid:{{Guid.NewGuid()}}</dc:identifier><dc:title>{{Escape(title)}}</dc:title><dc:language>en</dc:language><meta property="dcterms:modified">{{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}}</meta><meta property="rendition:layout">pre-paginated</meta><meta property="rendition:orientation">auto</meta><meta property="rendition:spread">none</meta></metadata><manifest>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id" prefix="rendition: http://www.idpf.org/vocab/rendition/#"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="book-id">urn:uuid:{{Guid.NewGuid()}}</dc:identifier><dc:title>{{Escape(title)}}</dc:title><dc:language>{{language}}</dc:language><meta property="dcterms:modified">{{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}}</meta><meta property="rendition:layout">pre-paginated</meta><meta property="rendition:orientation">auto</meta><meta property="rendition:spread">none</meta><meta name="primary-writing-mode" content="{{writingMode}}"/><meta name="fixed-layout" content="true"/><meta name="book-type" content="comic"/><meta name="zero-gutter" content="true"/></metadata><manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
-{{manifest}}  </manifest><spine page-progression-direction="rtl">
+{{manifest}}  </manifest><spine page-progression-direction="{{progression}}">
 {{spine}}  </spine></package>
 """;
+    }
 
     private const string ContainerXml = """<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>""";
     private const string DisplayOptions = """<?xml version="1.0" encoding="UTF-8"?><display_options><platform name="*"><option name="fixed-layout">true</option><option name="open-to-spread">false</option><option name="specified-fonts">false</option></platform></display_options>""";

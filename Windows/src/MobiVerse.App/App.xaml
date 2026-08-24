@@ -1,14 +1,15 @@
 <Application x:Class="MobiVerse.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
              StartupUri="MainWindow.xaml">
   <Application.Resources>
-    <SolidColorBrush x:Key="Ink" Color="#142A33"/>
-    <SolidColorBrush x:Key="Paper" Color="#F6F2E8"/>
-    <SolidColorBrush x:Key="Sidebar" Color="#F8F5EE"/>
-    <SolidColorBrush x:Key="Sage" Color="#4F7A4F"/>
-    <SolidColorBrush x:Key="Terracotta" Color="#B84729"/>
-    <SolidColorBrush x:Key="Cobalt" Color="#2E5973"/>
+    <SolidColorBrush x:Key="Ink" Color="#142A33" po:Freeze="False"/>
+    <SolidColorBrush x:Key="Paper" Color="#F6F2E8" po:Freeze="False"/>
+    <SolidColorBrush x:Key="Sidebar" Color="#F8F5EE" po:Freeze="False"/>
+    <SolidColorBrush x:Key="Sage" Color="#4F7A4F" po:Freeze="False"/>
+    <SolidColorBrush x:Key="Terracotta" Color="#B84729" po:Freeze="False"/>
+    <SolidColorBrush x:Key="Cobalt" Color="#2E5973" po:Freeze="False"/>
     <Style TargetType="Button">
       <Setter Property="FontFamily" Value="Segoe UI"/>
       <Setter Property="Cursor" Value="Hand"/>

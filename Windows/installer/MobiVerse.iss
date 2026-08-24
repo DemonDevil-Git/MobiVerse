@@ -5,7 +5,10 @@
   #define OutputDir ".\artifacts"
 #endif
 #ifndef AppVersion
-  #define AppVersion "2.2.0"
+  #define AppVersion "2.3.1"
+#endif
+#ifndef AppBuild
+  #define AppBuild "12"
 #endif
 
 [Setup]
@@ -28,7 +31,7 @@ WizardStyle=modern
 SetupIconFile=..\src\MobiVerse.App\Resources\MobiVerse.ico
 UninstallDisplayIcon={app}\MobiVerse.exe
 LicenseFile=..\..\LICENSE
-VersionInfoVersion={#AppVersion}.1
+VersionInfoVersion={#AppVersion}.{#AppBuild}
 VersionInfoProductName=MobiVerse
 VersionInfoDescription=MobiVerse Windows installer
 

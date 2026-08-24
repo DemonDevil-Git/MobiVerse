@@ -16,7 +16,7 @@
       </Grid>
     </Border>
 
-    <Grid Grid.Row="1" Background="Black">
+    <Grid x:Name="ReaderCanvas" Grid.Row="1" Background="Black">
       <ScrollViewer x:Name="ImageScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
         <Grid Background="Black">
           <Image x:Name="PageImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -24,7 +24,30 @@
           </Image>
         </Grid>
       </ScrollViewer>
-      <wv2:WebView2 x:Name="WebPreview" Visibility="Collapsed"/>
+      <Border x:Name="TextPageBorder" Visibility="Collapsed" Margin="18,17" CornerRadius="18" Background="#FBF8EF">
+        <wv2:WebView2 x:Name="WebPreview"/>
+      </Border>
+      <Grid x:Name="ReaderPositionBadge" Visibility="Collapsed" Margin="32,27" IsHitTestVisible="False" VerticalAlignment="Top">
+        <TextBlock x:Name="SectionBadge" Text="SECTION 1 OF 1" Foreground="#77223034" FontSize="10" FontWeight="Bold"/>
+        <TextBlock x:Name="TextPageBadge" Text="PAGE 1 OF 1" Foreground="#77223034" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+      </Grid>
+      <Border x:Name="AppearancePanel" Visibility="Collapsed" Width="310" HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,18,18,18" Padding="20" CornerRadius="16" Background="{StaticResource Paper}" BorderBrush="#20142A33" BorderThickness="1">
+        <StackPanel>
+          <TextBlock Text="Reading appearance" FontFamily="Georgia" FontSize="19" FontWeight="SemiBold"/>
+          <TextBlock Text="Choose a page that feels comfortable for longer sessions." TextWrapping="Wrap" FontSize="11" Foreground="#88142A33" Margin="0,4,0,18"/>
+          <TextBlock Text="PAGE THEME" FontSize="10" FontWeight="Bold" Foreground="#88142A33"/>
+          <UniformGrid Columns="3" Margin="0,6,0,18">
+            <Button Content="Paper" Tag="Paper" Click="ReaderTheme_Click"/>
+            <Button Content="Sepia" Tag="Sepia" Click="ReaderTheme_Click"/>
+            <Button Content="Night" Tag="Night" Click="ReaderTheme_Click"/>
+          </UniformGrid>
+          <TextBlock Text="TEXT SIZE" FontSize="10" FontWeight="Bold" Foreground="#88142A33"/>
+          <Slider x:Name="FontScaleSlider" Minimum="0.86" Maximum="1.32" Value="1" TickFrequency="0.02" ValueChanged="ReaderAppearance_ValueChanged" Margin="0,4,0,18"/>
+          <TextBlock Text="LINE SPACING" FontSize="10" FontWeight="Bold" Foreground="#88142A33"/>
+          <Slider x:Name="LineHeightSlider" Minimum="1.45" Maximum="1.85" Value="1.64" TickFrequency="0.02" ValueChanged="ReaderAppearance_ValueChanged" Margin="0,4,0,18"/>
+          <Button Content="Restore defaults" Foreground="{StaticResource Terracotta}" Click="RestoreReaderDefaults_Click"/>
+        </StackPanel>
+      </Border>
     </Grid>
 
     <Border x:Name="ImageControls" Grid.Row="2" Background="#FFFAFAFA" Padding="12,8">
@@ -39,6 +62,18 @@
           <Button Content="＋" Width="38" Click="ZoomIn_Click" ToolTip="Zoom in"/>
           <Button x:Name="NextButton" Content="▶" Width="38" Click="Next_Click" ToolTip="Next"/>
         </StackPanel>
+      </Grid>
+    </Border>
+    <Border x:Name="TextControls" Grid.Row="2" Visibility="Collapsed" Background="{StaticResource Sidebar}" Padding="12,8">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Button x:Name="TextPreviousButton" Content="◀" Width="38" Click="TextPrevious_Click" ToolTip="Previous page"/>
+        <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center">
+          <ProgressBar x:Name="TextProgress" Height="6" Minimum="0" Maximum="1"/>
+          <Grid Margin="0,4,0,0"><TextBlock x:Name="TextPositionLabel" FontSize="11" Foreground="#88142A33"/><TextBlock x:Name="TextProgressLabel" FontSize="11" Foreground="#88142A33" HorizontalAlignment="Right"/></Grid>
+        </StackPanel>
+        <Button x:Name="TextNextButton" Grid.Column="2" Content="▶" Width="38" Click="TextNext_Click" ToolTip="Next page"/>
+        <Button Grid.Column="3" Content="Aa  Reading appearance" Margin="12,3,0,3" Click="ToggleAppearance_Click"/>
       </Grid>
     </Border>
   </Grid>

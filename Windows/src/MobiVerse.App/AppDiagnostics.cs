@@ -6,9 +6,7 @@ namespace MobiVerse.App;
 internal static class AppDiagnostics
 {
     private static readonly object Gate = new();
-    private static readonly string LogDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "MobiVerse", "Logs");
+    private static readonly string LogDirectory = AppPaths.DataFile("Logs");
 
     internal static string CurrentLogPath => Path.Combine(LogDirectory, $"mobiverse-{DateTime.Now:yyyyMMdd}.log");
 

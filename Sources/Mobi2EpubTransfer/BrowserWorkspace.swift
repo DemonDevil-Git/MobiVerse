@@ -268,6 +268,28 @@ final class BrowserDownloadManager: NSObject, ObservableObject, WKDownloadDelega
         try? FileManager.default.removeItem(at: partial)
     }
 
+    /// Removes only the download-list entry. A completed book remains on disk;
+    /// removing an active entry first cancels its transfer and partial file.
+    func removeRecord(_ item: BrowserDownloadItem) {
+        guard let current = items.first(where: { $0.id == item.id }) else { return }
+
+        let partial = partialDownloadURL(id: current.id, filename: current.filename)
+        progressSubscriptions[current.id] = nil
+        resumeData[current.id] = nil
+        pausing.remove(current.id)
+
+        if let download = downloads.removeValue(forKey: current.id) {
+            identifiers[ObjectIdentifier(download)] = nil
+            download.cancel { _ in
+                try? FileManager.default.removeItem(at: partial)
+            }
+        }
+
+        try? FileManager.default.removeItem(at: partial)
+        items.removeAll { $0.id == current.id }
+        persistRecent()
+    }
+
     func pause(_ item: BrowserDownloadItem) {
         guard let download = downloads[item.id] else { return }
         pausing.insert(item.id)
@@ -401,6 +423,7 @@ struct BrowserWorkspace: View {
     @State private var bookmarks: [BrowserBookmark] = Self.loadBookmarks()
     @State private var showsDownloads = false
     @State private var showsSettings = false
+    @State private var downloadToDelete: BrowserDownloadItem?
     let onBookDownloaded: (URL) -> Void
 
     private var model: BrowserModel { tabs.active }
@@ -461,6 +484,28 @@ struct BrowserWorkspace: View {
         .alert("Download unavailable", isPresented: Binding(get: { downloads.errorMessage != nil }, set: { if !$0 { downloads.errorMessage = nil } })) {
             Button("OK", role: .cancel) { downloads.errorMessage = nil }
         } message: { Text(downloads.errorMessage ?? "") }
+        .confirmationDialog(
+            "Remove download record?",
+            isPresented: Binding(
+                get: { downloadToDelete != nil },
+                set: { if !$0 { downloadToDelete = nil } }
+            ),
+            presenting: downloadToDelete
+        ) { item in
+            Button("Remove Record", role: .destructive) {
+                withAnimation(.snappy(duration: 0.22)) {
+                    downloads.removeRecord(item)
+                }
+                downloadToDelete = nil
+            }
+            Button("Cancel", role: .cancel) { downloadToDelete = nil }
+        } message: { item in
+            if item.state == .downloading || item.state == .paused {
+                Text("The current download will be cancelled. Completed book files are never deleted.")
+            } else {
+                Text("This removes the history entry only. The downloaded book file will stay on this Mac.")
+            }
+        }
     }
 
     private var tabBar: some View {
@@ -664,51 +709,104 @@ struct BrowserWorkspace: View {
             if downloads.items.isEmpty {
                 Text("Downloaded books will appear here and be analyzed before conversion.").font(.caption).foregroundStyle(.secondary).padding(.bottom, 10)
             } else {
-                ScrollView(.horizontal) {
-                    HStack(spacing: 12) {
-                        ForEach(downloads.items.prefix(8)) { item in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(item.filename).font(.caption.weight(.semibold)).lineLimit(1)
-                                Text(item.sourceHost).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                                if item.state == .downloading || item.state == .paused {
-                                    HStack(spacing: 8) {
-                                        ProgressView(value: item.normalizedProgress)
-                                            .accessibilityLabel("Download progress")
-                                            .accessibilityValue(item.progressPercentage)
-                                        Text(item.progressPercentage)
-                                            .font(.caption2.monospacedDigit().weight(.medium))
-                                            .foregroundStyle(.secondary)
-                                            .frame(minWidth: 30, alignment: .trailing)
-                                    }
-                                    if item.state == .paused {
-                                        Text("Paused").font(.caption2).foregroundStyle(.secondary)
-                                    }
-                                } else {
-                                    Text(L10n.string(item.state.rawValue.capitalized))
-                                        .font(.caption2)
-                                        .foregroundStyle(item.state == .finished ? .green : .red)
-                                }
-                                HStack(spacing: 8) {
-                                    if item.state == .downloading {
-                                        Button("Pause") { downloads.pause(item) }
-                                        Button("Cancel") { downloads.cancel(item) }
-                                    } else if item.state == .paused {
-                                        Button("Resume") { downloads.resume(item, in: model.webView) }
-                                        Button("Cancel") { downloads.cancel(item) }
-                                    } else if item.state == .failed || item.state == .cancelled, let url = item.sourceURL {
-                                        Button("Retry") { model.navigate(url.absoluteString) }
-                                    } else if item.state == .finished, let url = item.localURL {
-                                        Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-                                    }
-                                }
-                                .buttonStyle(.borderless)
-                                .font(.caption2)
-                            }.frame(width: 190, alignment: .leading)
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(downloads.items) { item in
+                            downloadRow(item)
+                            if item.id != downloads.items.last?.id {
+                                Divider().overlay(BrowserPalette.ink.opacity(0.07))
+                            }
                         }
-                    }.padding(.horizontal, 16).padding(.bottom, 10)
+                    }
+                    .padding(.horizontal, 16)
                 }
+                .frame(height: min(CGFloat(downloads.items.count) * 72, 288))
+                .scrollBounceBehavior(.basedOnSize)
+                .animation(.snappy(duration: 0.22), value: downloads.items.map(\.id))
             }
         }.background(BrowserPalette.sidebar)
+    }
+
+    private func downloadRow(_ item: BrowserDownloadItem) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: downloadIcon(for: item.state))
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(downloadColor(for: item.state))
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(item.filename)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                HStack(spacing: 8) {
+                    Text(item.sourceHost)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    if item.state == .downloading || item.state == .paused {
+                        ProgressView(value: item.normalizedProgress)
+                            .frame(maxWidth: 180)
+                            .accessibilityLabel("Download progress")
+                            .accessibilityValue(item.progressPercentage)
+                        Text(item.progressPercentage)
+                            .font(.caption2.monospacedDigit().weight(.medium))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(L10n.string(item.state.rawValue.capitalized))
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(downloadColor(for: item.state))
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 9) {
+                if item.state == .downloading {
+                    Button("Pause") { downloads.pause(item) }
+                    Button("Cancel") { downloads.cancel(item) }
+                } else if item.state == .paused {
+                    Button("Resume") { downloads.resume(item, in: model.webView) }
+                    Button("Cancel") { downloads.cancel(item) }
+                } else if item.state == .failed || item.state == .cancelled, let url = item.sourceURL {
+                    Button("Retry") { model.navigate(url.absoluteString) }
+                } else if item.state == .finished, let url = item.localURL {
+                    Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                }
+
+                Button(role: .destructive) {
+                    downloadToDelete = item
+                } label: {
+                    Label("Remove Record", systemImage: "trash")
+                        .labelStyle(.iconOnly)
+                }
+                .help("Remove Record")
+                .accessibilityLabel("Remove Record")
+            }
+            .buttonStyle(.borderless)
+            .font(.caption2)
+        }
+        .padding(.vertical, 10)
+        .frame(minHeight: 72)
+    }
+
+    private func downloadIcon(for state: BrowserDownloadState) -> String {
+        switch state {
+        case .downloading: "arrow.down.circle.fill"
+        case .paused: "pause.circle.fill"
+        case .finished: "checkmark.circle.fill"
+        case .failed: "exclamationmark.triangle.fill"
+        case .cancelled: "xmark.circle.fill"
+        }
+    }
+
+    private func downloadColor(for state: BrowserDownloadState) -> Color {
+        switch state {
+        case .downloading: BrowserPalette.cobalt
+        case .paused: BrowserPalette.walnutLight
+        case .finished: BrowserPalette.sage
+        case .failed, .cancelled: BrowserPalette.terracotta
+        }
     }
 
     private var currentPageURL: URL? {

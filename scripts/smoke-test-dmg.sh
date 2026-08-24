@@ -4,6 +4,7 @@ set -euo pipefail
 DMG_PATH="${1:?Usage: smoke-test-dmg.sh /path/to/MobiVerse.dmg}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MOUNT_DIR="$(mktemp -d /tmp/mobiverse-dmg-smoke.XXXXXX)"
+INSTALL_DIR="$(mktemp -d /tmp/mobiverse-install-smoke.XXXXXX)"
 IS_MOUNTED=0
 
 detach_image() {
@@ -22,9 +23,13 @@ cleanup() {
     detach_image 2>/dev/null || true
   fi
   rmdir "$MOUNT_DIR" 2>/dev/null || true
+  case "$INSTALL_DIR" in
+    /tmp/mobiverse-install-smoke.*) rm -rf "$INSTALL_DIR" ;;
+  esac
 }
 trap cleanup EXIT INT TERM
 
+hdiutil verify "$DMG_PATH" >/dev/null
 hdiutil attach "$DMG_PATH" -nobrowse -readonly -mountpoint "$MOUNT_DIR" -quiet
 IS_MOUNTED=1
 
@@ -34,8 +39,14 @@ if [[ ! -d "$APP_PATH" ]]; then
   exit 1
 fi
 
-bash "$SCRIPT_DIR/smoke-test-app.sh" "$APP_PATH"
+/usr/bin/ditto "$APP_PATH" "$INSTALL_DIR/MobiVerse.app"
+INSTALLED_APP_PATH="$INSTALL_DIR/MobiVerse.app"
+
+if command -v codesign >/dev/null 2>&1; then
+  codesign --verify --deep --strict --verbose=2 "$INSTALLED_APP_PATH"
+fi
 
 detach_image
 rmdir "$MOUNT_DIR"
-echo "DMG mount and fresh-user launch smoke test passed: $DMG_PATH"
+bash "$SCRIPT_DIR/smoke-test-app.sh" "$INSTALLED_APP_PATH"
+echo "DMG integrity, install-copy signature, and fresh-user launch smoke test passed: $DMG_PATH"

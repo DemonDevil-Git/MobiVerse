@@ -10,9 +10,12 @@ public sealed class ConverterService(
         string inputPath,
         string outputPath,
         IProgress<ConversionProgressUpdate>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ConversionProfile profile = ConversionProfile.ComicFixedLayout,
+        EpubReadingDirection readingDirection = EpubReadingDirection.RightToLeft)
     {
-        if (Path.GetExtension(inputPath).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+        if (Path.GetExtension(inputPath).Equals(".pdf", StringComparison.OrdinalIgnoreCase) &&
+            profile == ConversionProfile.ComicFixedLayout)
         {
             var workingDirectory = Path.Combine(Path.GetTempPath(), "MobiVersePDFConversion", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(workingDirectory);
@@ -20,7 +23,7 @@ public sealed class ConverterService(
             {
                 var rendered = await pdfRenderer.RenderAsync(inputPath, workingDirectory, progress, cancellationToken).ConfigureAwait(false);
                 progress?.Report(new(.92, $"Packaging {rendered.ImagePaths.Count} pages into EPUB", rendered.ImagePaths.Count, rendered.ImagePaths.Count));
-                var report = archiveService.BuildFixedLayout(rendered.Title, rendered.ImagePaths, outputPath);
+                var report = archiveService.BuildFixedLayout(rendered.Title, rendered.ImagePaths, outputPath, readingDirection);
                 progress?.Report(new(1, "PDF conversion complete", rendered.ImagePaths.Count, rendered.ImagePaths.Count));
                 return new(outputPath, $"Native PDF conversion\n---------------------\nRenderer: Windows.Data.Pdf\nPages: {rendered.ImagePaths.Count}\nMaximum image edge: 2200 px\nJPEG quality: 0.86\nCalibre PDF reflow: skipped", ConversionStrategy.NativePdfFixedLayout, report);
             }
@@ -44,21 +47,32 @@ public sealed class ConverterService(
         try
         {
             progress?.Report(new(.08, "Converting with Calibre", 0, 1));
-            var arguments = new[]
+            var arguments = new List<string>
             {
-                preparedInput, outputPath, "--preserve-cover-aspect-ratio", "--disable-font-rescaling", "--pretty-print",
-                "--epub-max-image-size=none", "--margin-top=0", "--margin-right=0", "--margin-bottom=0", "--margin-left=0",
-                "--filter-css=height,width,margin,margin-left,margin-right,margin-top,margin-bottom,padding,padding-left,padding-right,padding-top,padding-bottom",
-                $"--extra-css={ComicExtraCss}"
+                preparedInput, outputPath, "--preserve-cover-aspect-ratio", "--disable-font-rescaling", "--pretty-print"
             };
+            if (profile == ConversionProfile.TextReflow)
+            {
+                arguments.Add("--epub-version=3");
+            }
+            else
+            {
+                arguments.AddRange([
+                    "--epub-max-image-size=none", "--margin-top=0", "--margin-right=0", "--margin-bottom=0", "--margin-left=0",
+                    "--filter-css=height,width,margin,margin-left,margin-right,margin-top,margin-bottom,padding,padding-left,padding-right,padding-top,padding-bottom",
+                    $"--extra-css={ComicExtraCss}"
+                ]);
+            }
             var result = await runner.RunAsync(tools.EbookConvertPath!, arguments, cancellationToken: cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0)
             {
                 var kind = ClassifyFailure(result.Output);
                 throw new ConversionException(kind, Message(kind), result.Output);
             }
-            progress?.Report(new(.65, "Optimizing comic EPUB layout", 1, 1));
-            var report = archiveService.ProcessComicEpub(outputPath);
+            progress?.Report(new(.65, profile == ConversionProfile.TextReflow ? "Repairing text EPUB structure" : "Optimizing comic EPUB layout", 1, 1));
+            var report = profile == ConversionProfile.TextReflow
+                ? new TextEpubPostProcessor().Process(outputPath).ReportText
+                : archiveService.ProcessComicEpub(outputPath, readingDirection);
             return new(outputPath, result.Output, ConversionStrategy.Calibre, report);
         }
         finally

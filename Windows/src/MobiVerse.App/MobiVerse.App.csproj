@@ -8,8 +8,10 @@
     <AssemblyName>MobiVerse</AssemblyName>
     <RootNamespace>MobiVerse.App</RootNamespace>
     <ApplicationIcon Condition="Exists('Resources\MobiVerse.ico')">Resources\MobiVerse.ico</ApplicationIcon>
-    <Version>2.2.0</Version>
-    <FileVersion>2.2.0.1</FileVersion>
+    <Version>2.3.1</Version>
+    <AssemblyVersion>2.3.1.0</AssemblyVersion>
+    <FileVersion>2.3.1.12</FileVersion>
+    <InformationalVersion>2.3.1+12</InformationalVersion>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
   <ItemGroup>
@@ -19,6 +21,7 @@
   <ItemGroup>
     <Resource Include="..\..\..\Sources\Mobi2EpubTransfer\Resources\hero-books-background.png" Link="Resources\hero-books-background.png" />
     <Resource Include="..\..\..\Sources\Mobi2EpubTransfer\Resources\reading-still-life.png" Link="Resources\reading-still-life.png" />
+    <Resource Include="..\..\..\Sources\Mobi2EpubTransfer\Resources\reading-still-life-dark.png" Link="Resources\reading-still-life-dark.png" />
     <Resource Include="Resources\MobiVerse.ico" Condition="Exists('Resources\MobiVerse.ico')" />
   </ItemGroup>
 </Project>

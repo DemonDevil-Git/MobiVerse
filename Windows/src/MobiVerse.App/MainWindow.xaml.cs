@@ -14,10 +14,12 @@ namespace MobiVerse.App;
 
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
-    private readonly IHistoryStore _historyStore = new HistoryStore();
+    private readonly IHistoryStore _historyStore = new HistoryStore(AppPaths.DataFile("history.json"));
     private readonly FileOutputPolicy _outputPolicy = new();
     private readonly ProcessRunner _runner = new();
     private readonly EpubArchiveService _archiveService = new();
+    private readonly ImportReviewStore _importReviewStore = new(AppPaths.DataFile("pending-imports.json"));
+    private readonly List<PendingImportViewModel> _pendingImports;
     private readonly ToolchainLocator _toolchainLocator;
     private readonly ConverterService _converter;
     private readonly HashSet<Guid> _previewWhenComplete = [];
@@ -34,9 +36,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _toolchainLocator = new ToolchainLocator(applicationDirectory);
         _tools = _toolchainLocator.Inspect();
         _converter = new ConverterService(_runner, _toolchainLocator, new WindowsPdfPageRenderer(), _archiveService);
+        _pendingImports = _importReviewStore.Load();
         foreach (var task in _historyStore.Load()) Items.Add(new TaskItemViewModel(task));
+        BrowseWorkspace.BookDownloaded += async (_, path) => await AnalyzeImportsAsync([path], ImportSource.BrowserDownload);
         Loaded += Window_Loaded;
         SizeChanged += (_, _) => UpdateCardWidth();
+        AppThemeManager.ApplySaved(AppearanceButton);
+        UpdateReadingArt();
         UpdatePresentation();
     }
 
@@ -54,7 +60,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
         await LoadCachedCoversAsync();
-        if (App.StartupFiles.Count > 0) await AddFilesAsync(App.StartupFiles, true);
+        if (App.StartupFiles.Count > 0) await AnalyzeImportsAsync(App.StartupFiles, ImportSource.FilePicker);
+        else if (_pendingImports.Count > 0) ShowImportReview();
         await ProcessQueueAsync();
     }
 
@@ -69,39 +76,109 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Title = "Choose books",
             Filter = "Books|*.epub;*.mobi;*.azw;*.azw3;*.cbz;*.cbr;*.zip;*.pdf|All files|*.*"
         };
-        if (dialog.ShowDialog(this) == true) await AddFilesAsync(dialog.FileNames, true);
+        if (dialog.ShowDialog(this) == true) await AnalyzeImportsAsync(dialog.FileNames, ImportSource.FilePicker);
     }
 
-    private async Task AddFilesAsync(IEnumerable<string> paths, bool openAfterConversion)
+    private async Task AnalyzeImportsAsync(IEnumerable<string> paths, ImportSource source)
     {
-        foreach (var rawPath in paths)
+        var supported = paths.Select(Path.GetFullPath)
+            .Where(File.Exists)
+            .Where(path => SupportedFormats.Openable.Contains(Path.GetExtension(path)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(path => !_pendingImports.Any(item => item.Path.Equals(path, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+        if (supported.Length == 0) return;
+
+        BusyTitle.Text = "Analyzing imported books";
+        BusyMessage.Text = "Detecting text and comic layouts locally";
+        BusyProgress.Value = 0;
+        BusyOverlay.Visibility = Visibility.Visible;
+        var classifier = new BookClassifier(_runner, _toolchainLocator);
+        try
         {
-            var path = Path.GetFullPath(rawPath);
-            if (!File.Exists(path) || !SupportedFormats.Openable.Contains(Path.GetExtension(path))) continue;
-            if (Path.GetExtension(path).Equals(".epub", StringComparison.OrdinalIgnoreCase))
+            for (var index = 0; index < supported.Length; index++)
             {
-                await OpenPreviewAsync(path);
+                var path = supported[index];
+                BusyMessage.Text = $"Analyzing {Path.GetFileName(path)}";
+                BusyProgress.Value = (double)index / supported.Length * 100;
+                ClassificationResult classification;
+                try { classification = await classifier.ClassifyAsync(path); }
+                catch (Exception exception)
+                {
+                    classification = new(BookContentKind.Uncertain, 0, $"The file could not be classified: {exception.Message}");
+                }
+                _pendingImports.Add(new PendingImportViewModel(path, source, classification));
+                _importReviewStore.Save(_pendingImports);
+            }
+        }
+        finally
+        {
+            BusyOverlay.Visibility = Visibility.Collapsed;
+            UpdatePendingImportsButton();
+        }
+        ShowImportReview();
+    }
+
+    private void ShowImportReview()
+    {
+        if (_pendingImports.Count == 0) return;
+        var dialog = new ImportReviewWindow(_pendingImports) { Owner = this };
+        var confirmed = dialog.ShowDialog() == true && dialog.Confirmed;
+        _importReviewStore.Save(_pendingImports);
+        if (!confirmed) { UpdatePendingImportsButton(); return; }
+
+        string? firstEpub = null;
+        foreach (var import in _pendingImports.ToArray())
+        {
+            var existing = Items.FirstOrDefault(item => item.Model.InputPath.Equals(import.Path, StringComparison.OrdinalIgnoreCase));
+            if (import.IsEpub)
+            {
+                if (existing is null)
+                {
+                    existing = new TaskItemViewModel(new ConversionTask
+                    {
+                        InputPath = import.Path,
+                        OutputPath = import.Path,
+                        Status = ConversionStatus.Succeeded,
+                        Progress = 1,
+                        StatusMessage = "Ready to read",
+                        CompletedAt = DateTimeOffset.Now,
+                        ImportSource = import.Source,
+                        DetectedKind = import.Classification.Kind,
+                        ConversionProfile = import.SelectedProfile ?? ConversionProfile.TextReflow,
+                        ReadingDirection = import.ReadingDirection
+                    });
+                    Items.Add(existing);
+                    _ = LoadCoverAsync(existing);
+                }
+                firstEpub ??= import.Path;
                 continue;
             }
-            var existing = Items.FirstOrDefault(item => string.Equals(item.Model.InputPath, path, StringComparison.OrdinalIgnoreCase));
+
+            if (import.SelectedProfile is null) continue;
             if (existing is not null)
             {
-                if (existing.CanPreview && openAfterConversion)
-                {
-                    await OpenPreviewAsync(existing.Model.OutputPath!);
-                    continue;
-                }
                 if (existing.Model.Status is ConversionStatus.Failed or ConversionStatus.Succeeded or ConversionStatus.SucceededWithWarnings)
                     Requeue(existing);
-                if (openAfterConversion) _previewWhenComplete.Add(existing.Model.Id);
-                continue;
             }
-            var added = new TaskItemViewModel(new ConversionTask { InputPath = path });
-            Items.Add(added);
-            if (openAfterConversion) _previewWhenComplete.Add(added.Model.Id);
+            else
+            {
+                existing = new TaskItemViewModel(new ConversionTask { InputPath = import.Path });
+                Items.Add(existing);
+            }
+            existing.Model.ImportSource = import.Source;
+            existing.Model.DetectedKind = import.Classification.Kind;
+            existing.Model.ConversionProfile = import.SelectedProfile.Value;
+            existing.Model.ReadingDirection = import.ReadingDirection;
+            _previewWhenComplete.Add(existing.Model.Id);
         }
+        _pendingImports.Clear();
+        _importReviewStore.Save(_pendingImports);
+        UpdatePendingImportsButton();
+        ShowShelfWorkspace();
         PersistAndRefresh();
-        await ProcessQueueAsync();
+        _ = ProcessQueueAsync();
+        if (firstEpub is not null) _ = OpenPreviewAsync(firstEpub);
     }
 
     private async Task ProcessQueueAsync()
@@ -129,7 +206,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ? "Preparing native PDF conversion" : "Checking Calibre and EPUBCheck";
         Update(item);
         _tools = _toolchainLocator.Inspect();
-        if (!Path.GetExtension(task.InputPath).Equals(".pdf", StringComparison.OrdinalIgnoreCase) && !_tools.HasCalibre)
+        var usesNativePdf = Path.GetExtension(task.InputPath).Equals(".pdf", StringComparison.OrdinalIgnoreCase) &&
+                            task.ConversionProfile == ConversionProfile.ComicFixedLayout;
+        if (!usesNativePdf && !_tools.HasCalibre)
         {
             Fail(item, "Bundled Calibre was not found. Reinstall MobiVerse or install Calibre.");
             return;
@@ -148,7 +227,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 task.StatusMessage = update.Message;
                 Update(item, false);
             });
-            var conversion = await _converter.ConvertAsync(task.InputPath, task.OutputPath, progress);
+            var conversion = await _converter.ConvertAsync(
+                task.InputPath,
+                task.OutputPath,
+                progress,
+                profile: task.ConversionProfile,
+                readingDirection: task.ReadingDirection);
             task.Log = conversion.Log;
             task.Status = ConversionStatus.Validating;
             task.Progress = .8;
@@ -210,7 +294,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(TotalCount)); OnPropertyChanged(nameof(SucceededCount));
         OnPropertyChanged(nameof(FailedCount)); OnPropertyChanged(nameof(ActiveCount));
         OnPropertyChanged(nameof(ToolStatusText)); OnPropertyChanged(nameof(ToolStatusBrush));
+        UpdatePendingImportsButton();
         UpdateCardWidth();
+    }
+
+    private void UpdatePendingImportsButton()
+    {
+        if (PendingImportsButton is null) return;
+        PendingImportsButton.Visibility = _pendingImports.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        PendingImportsButton.Content = $"☑  Review {_pendingImports.Count} import{(_pendingImports.Count == 1 ? "" : "s")}";
     }
 
     private void UpdateCardWidth()
@@ -268,7 +360,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
         var item = Tagged(sender);
-        if (item is null) return;
+        if (item is null)
+        {
+            AppDiagnostics.Write("Delete action ignored because the button had no bound conversion item.");
+            return;
+        }
         var hasOutput = item.Model.OutputPath is not null && File.Exists(item.Model.OutputPath);
         var message = hasOutput
             ? $"\"{Path.GetFileName(item.Model.OutputPath)}\" will be permanently deleted and removed from history."
@@ -331,8 +427,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     private static string CoverCachePath(Guid id) => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "MobiVerse", "CoverCache", id + ".cover");
+        AppPaths.DataDirectory, "CoverCache", id + ".cover");
 
     private void Window_DragOver(object sender, DragEventArgs e)
     {
@@ -342,9 +437,56 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void Window_Drop(object sender, DragEventArgs e)
     {
-        if (e.Data.GetData(DataFormats.FileDrop) is string[] paths) await AddFilesAsync(paths, true);
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] paths) await AnalyzeImportsAsync(paths, ImportSource.DragAndDrop);
     }
 
+    private void ReviewImports_Click(object sender, RoutedEventArgs e) => ShowImportReview();
+    private void ShelfWorkspace_Click(object sender, RoutedEventArgs e) => ShowShelfWorkspace();
+    private void BrowseWorkspace_Click(object sender, RoutedEventArgs e)
+    {
+        ShelfWorkspace.Visibility = Visibility.Collapsed;
+        BrowseWorkspace.Visibility = Visibility.Visible;
+        ShelfWorkspaceButton.Background = Brushes.Transparent;
+        ShelfWorkspaceButton.Foreground = (Brush)FindResource("Ink");
+        BrowseWorkspaceButton.Background = (Brush)FindResource("Sage");
+        BrowseWorkspaceButton.Foreground = Brushes.White;
+    }
+
+    private void ShowShelfWorkspace()
+    {
+        ShelfWorkspace.Visibility = Visibility.Visible;
+        BrowseWorkspace.Visibility = Visibility.Collapsed;
+        ShelfWorkspaceButton.Background = (Brush)FindResource("Sage");
+        ShelfWorkspaceButton.Foreground = Brushes.White;
+        BrowseWorkspaceButton.Background = Brushes.Transparent;
+        BrowseWorkspaceButton.Foreground = (Brush)FindResource("Ink");
+    }
+
+    private void Appearance_Click(object sender, RoutedEventArgs e) { AppThemeManager.Cycle(AppearanceButton); UpdateReadingArt(); }
+    private void UpdateReadingArt()
+    {
+        var fileName = AppThemeManager.IsDark ? "reading-still-life-dark.png" : "reading-still-life.png";
+#if RUNTIME_XAML
+        ReadingArt.Source = LoadLooseImage(fileName);
+        HeroArt.Source = LoadLooseImage("hero-books-background.png");
+#else
+        ReadingArt.Source = new BitmapImage(new Uri($"pack://application:,,,/Resources/{fileName}"));
+        HeroArt.Source = new BitmapImage(new Uri("pack://application:,,,/Resources/hero-books-background.png"));
+#endif
+    }
+#if RUNTIME_XAML
+    private static BitmapImage LoadLooseImage(string fileName)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Resources", fileName);
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.UriSource = new Uri(path, UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
+    }
+#endif
     private void ToggleSidebar_Click(object sender, RoutedEventArgs e) { SidebarColumn.Width = SidebarColumn.Width.Value == 0 ? new GridLength(286) : new GridLength(0); UpdateCardWidth(); }
     private void GridView_Click(object sender, RoutedEventArgs e) { _isGrid = true; UpdateCardWidth(); }
     private void ListView_Click(object sender, RoutedEventArgs e) { _isGrid = false; UpdateCardWidth(); }
@@ -408,4 +550,65 @@ public sealed class TaskItemViewModel : INotifyPropertyChanged
     }
 
     private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new(name));
+}
+
+public enum AppAppearancePreference { System, Light, Dark }
+
+public static class AppThemeManager
+{
+    private static readonly string StoragePath = Path.Combine(
+        AppPaths.DataDirectory, "appearance.txt");
+    private static AppAppearancePreference _preference = AppAppearancePreference.System;
+    public static bool IsDark { get; private set; }
+
+    public static void ApplySaved(Button label)
+    {
+        try
+        {
+            if (File.Exists(StoragePath) && Enum.TryParse<AppAppearancePreference>(File.ReadAllText(StoragePath), out var saved))
+                _preference = saved;
+        }
+        catch { }
+        Apply(label);
+    }
+
+    public static void Cycle(Button label)
+    {
+        _preference = _preference switch
+        {
+            AppAppearancePreference.System => AppAppearancePreference.Light,
+            AppAppearancePreference.Light => AppAppearancePreference.Dark,
+            _ => AppAppearancePreference.System
+        };
+        try { Directory.CreateDirectory(Path.GetDirectoryName(StoragePath)!); File.WriteAllText(StoragePath, _preference.ToString()); } catch { }
+        Apply(label);
+    }
+
+    private static void Apply(Button label)
+    {
+        IsDark = _preference == AppAppearancePreference.Dark || (_preference == AppAppearancePreference.System && SystemUsesDarkTheme());
+        SetColor("Ink", IsDark ? "#F0E9DB" : "#142A33");
+        SetColor("Paper", IsDark ? "#171B1C" : "#F6F2E8");
+        SetColor("Sidebar", IsDark ? "#202526" : "#F8F5EE");
+        SetColor("Sage", IsDark ? "#80A77E" : "#4F7A4F");
+        SetColor("Terracotta", IsDark ? "#DB7B5D" : "#B84729");
+        SetColor("Cobalt", IsDark ? "#76A7C3" : "#2E5973");
+        label.Content = $"◐  {_preference}";
+    }
+
+    private static void SetColor(string key, string value)
+    {
+        if (Application.Current.Resources[key] is SolidColorBrush brush && !brush.IsFrozen)
+            brush.Color = (Color)ColorConverter.ConvertFromString(value);
+    }
+
+    private static bool SystemUsesDarkTheme()
+    {
+        try
+        {
+            var value = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")?.GetValue("AppsUseLightTheme");
+            return value is int number && number == 0;
+        }
+        catch { return false; }
+    }
 }

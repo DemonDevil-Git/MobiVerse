@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.4.1.dmg"><img src="https://img.shields.io/badge/macOS%202.4.1-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse 2.4.1 macOS 版"></a>
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.2.0-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="下载 MobiVerse 2.2.0 Windows 版"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.5.0.dmg"><img src="https://img.shields.io/badge/macOS%202.5.0-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="下载 MobiVerse 2.5.0 macOS 版"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.3.1/MobiVerse-2.3.1-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.3.1-%E4%B8%8B%E8%BD%BD-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="下载 MobiVerse 2.3.1 Windows 版"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC" alt="最新版本"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
 </p>
@@ -25,17 +25,18 @@ https://github.com/user-attachments/assets/485accd5-569d-45ed-b25f-5643ba96d3fc
 
 观看[官网演示](https://mobiverse-coral.vercel.app/#demo)，或从 GitHub Releases 下载官方 [H.264 MP4](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo.mp4) 与[原始 HEVC MOV](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo-Original.mov)。
 
-## MobiVerse 2.4.1 更新说明
+## MobiVerse 2.5.0 更新说明
 
-MobiVerse 2.4.1 (14) 发布于 2026 年 8 月 11 日，重点提升 macOS 首次启动可靠性与工作区布局：
+MobiVerse 2.5.0 (15) 发布于 2026 年 8 月 24 日，重点提升阅读沉浸感、下载记录管理和全新安装可靠性：
 
-- **修复新安装后的首次启动闪退**：本地化资源会从安装包中的真实位置安全加载，新用户第一次打开不再因开发环境资源路径失效而退出。
-- **修正 Browse 工具栏顺序**：新增标签页的 `+` 按钮始终位于右侧操作区，并紧邻下载按钮左边。
-- **重新居中中文工作区控件**：“书架 / 浏览”选择器占满可用宽度，较短的中文标签不会再让控件明显偏左。
-- **加强正式包启动验证**：打包检查会使用全新偏好设置分别启动打包后的 App 和最终 DMG 内的 App，并要求两者持续稳定运行。
-- **完整验证通过**：14 个测试套件中的 51 项自动化测试全部通过，DMG 同时通过完整性与严格代码签名验证。
+- **沉浸式 EPUB 阅读**：阅读器控件和鼠标指针可自动隐藏，同时保留全屏与键盘翻页操作。
+- **多种漫画版式**：支持单页、双页跨页和纵向连续阅读，并按照从左到右或从右到左的书籍方向排列页面。
+- **更丝滑的渲染**：加入自适应画布颜色、图像缓存、相邻页面预加载和更轻的页面过渡。
+- **更好用的 Browse 下载页**：下载记录改为可顺滑滚动的纵向列表，并可单独删除记录而不删除已下载书籍。
+- **更真实的全新安装验证**：最终 DMG 会先校验完整性，再复制到全新 Applications 模拟目录、卸载镜像、验证签名并使用全新偏好冷启动。
+- **完整验证通过**：macOS 51 项测试和 Windows 核心 55 项测试全部通过，打包脚本与官网 JavaScript 也通过语法检查。
 
-[查看 MobiVerse 2.4.1 完整发布说明](https://github.com/DemonDevil-Git/MobiVerse/releases/tag/v2.4.1)。
+[查看 MobiVerse 2.5.0 完整发布说明](https://github.com/DemonDevil-Git/MobiVerse/releases/tag/v2.5.0)。
 
 ## 产品展示
 
@@ -110,16 +111,16 @@ MobiVerse 不移除 DRM。受保护或无法读取的文件会被明确标记为
 
 ### macOS
 
-1. 下载最新 DMG：[MobiVerse-2.4.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.4.1.dmg)。
-2. 打开 `MobiVerse-2.4.1.dmg`。
+1. 下载最新 DMG：[MobiVerse-2.5.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.5.0.dmg)。
+2. 打开 `MobiVerse-2.5.0.dmg`。
 3. 将 `MobiVerse.app` 拖入 `Applications`；系统提示时替换旧版本。
 4. 启动 MobiVerse，把支持的文件拖入窗口，或在 Finder 中选择用 MobiVerse 打开。
 
-当前 macOS 版本为 MobiVerse 2.4.1 (14)，仅支持 Apple Silicon（`arm64`）。
+当前 macOS 版本为 MobiVerse 2.5.0 (15)，仅支持 Apple Silicon（`arm64`）。
 
 ### Windows 11 ARM64
 
-当前 Windows 版本仍为 2.2.0。下载并运行 [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe)。安装包包含通过 Windows 11 ARM64 仿真运行的 x64 MobiVerse 与 Calibre 组件，以及原生 ARM64 WebView2 运行时。MobiVerse 2.4.0 目前仅更新 macOS 版本。
+当前 Windows 版本为 MobiVerse 2.3.1 (Build 12)。下载并运行 [MobiVerse-2.3.1-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.3.1/MobiVerse-2.3.1-Windows11-ARM64-Setup.exe)。安装包包含通过 Windows 11 ARM64 仿真运行的 x64 MobiVerse 与 Calibre 组件，以及原生 ARM64 WebView2 运行时。
 
 转换后的 EPUB 会保存到原文件旁边，并避免覆盖已有 EPUB。
 
@@ -277,7 +278,7 @@ scripts/package-dmg.sh
 生成的安装镜像位于：
 
 ```text
-.build/MobiVerse-2.4.1.dmg
+.build/MobiVerse-2.5.0.dmg
 ```
 
 默认开发构建使用 ad-hoc 签名，适合本地测试；但从互联网下载后会被 macOS Gatekeeper 拦截。

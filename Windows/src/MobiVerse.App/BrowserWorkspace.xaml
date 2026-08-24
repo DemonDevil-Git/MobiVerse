@@ -1,0 +1,87 @@
+<UserControl x:Class="MobiVerse.App.BrowserWorkspace"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Paper}" Foreground="{StaticResource Ink}">
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="58"/><RowDefinition Height="*"/><RowDefinition Height="28"/></Grid.RowDefinitions>
+    <Border Background="{StaticResource Sidebar}" BorderBrush="#18142A33" BorderThickness="0,0,0,1" Padding="12,8">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal">
+          <Button Content="⌂" Width="38" Click="Home_Click" ToolTip="Home"/>
+          <Button Content="←" Width="38" Click="Back_Click" ToolTip="Back"/>
+          <Button Content="→" Width="38" Click="Forward_Click" ToolTip="Forward"/>
+          <Button Content="↻" Width="38" Click="Reload_Click" ToolTip="Reload"/>
+        </StackPanel>
+        <TextBox x:Name="AddressBox" Grid.Column="1" Margin="10,3" Padding="12,7" FontSize="14" VerticalContentAlignment="Center"
+                 KeyDown="AddressBox_KeyDown"/>
+        <StackPanel Grid.Column="2" Orientation="Horizontal">
+          <Button Content="Go" Width="48" Click="Go_Click"/>
+          <Button Content="☆" Width="40" Click="Bookmark_Click" ToolTip="Bookmark this page"/>
+          <Button Content="＋" Width="40" Click="NewTab_Click" ToolTip="New tab"/>
+          <Button Content="☰" Width="40" Click="Library_Click" ToolTip="Bookmarks, downloads, and privacy"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition x:Name="LibraryColumn" Width="0"/></Grid.ColumnDefinitions>
+      <TabControl x:Name="Tabs" Grid.Column="0" SelectionChanged="Tabs_SelectionChanged" Background="White" BorderThickness="0"/>
+      <Border Grid.Column="1" Background="{StaticResource Sidebar}" BorderBrush="#18142A33" BorderThickness="1,0,0,0" Padding="16">
+        <Grid>
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <Grid>
+            <TextBlock Text="Browse library" FontFamily="Georgia" FontSize="21" FontWeight="SemiBold"/>
+            <Button Content="✕" Width="34" HorizontalAlignment="Right" Click="CloseLibrary_Click"/>
+          </Grid>
+          <TabControl Grid.Row="1" Margin="0,12,0,10">
+            <TabItem Header="Bookmarks">
+              <ListBox x:Name="BookmarksList" ItemsSource="{Binding Bookmarks}" BorderThickness="0" MouseDoubleClick="BookmarksList_MouseDoubleClick">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Grid Margin="4,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                      <StackPanel><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Url}" FontSize="11" Foreground="#88142A33" TextTrimming="CharacterEllipsis"/></StackPanel>
+                      <Button Grid.Column="1" Content="⌫" Tag="{Binding}" Click="RemoveBookmark_Click" Foreground="{StaticResource Terracotta}"/>
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </TabItem>
+            <TabItem Header="Downloads">
+              <ListBox ItemsSource="{Binding Downloads}" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Margin="4,8">
+                      <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                      <ProgressBar Height="6" Value="{Binding ProgressPercent}" Margin="0,5"/>
+                      <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="#88142A33"/>
+                      <StackPanel Orientation="Horizontal">
+                        <Button Content="Pause" Tag="{Binding}" Click="PauseDownload_Click" IsEnabled="{Binding CanPause}"/>
+                        <Button Content="Resume" Tag="{Binding}" Click="ResumeDownload_Click" IsEnabled="{Binding CanResume}"/>
+                        <Button Content="Cancel" Tag="{Binding}" Click="CancelDownload_Click" IsEnabled="{Binding CanCancel}"/>
+                        <Button Content="Reveal" Tag="{Binding}" Click="RevealDownload_Click" IsEnabled="{Binding CanReveal}"/>
+                      </StackPanel>
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </TabItem>
+          </TabControl>
+          <StackPanel Grid.Row="2">
+            <CheckBox x:Name="AutoPdfCheck" Content="Automatically download main-page PDFs" IsChecked="{Binding AutomaticallyDownloadsPdfs}" Click="AutoPdfCheck_Click"/>
+            <Button Content="Choose download folder…" Click="ChooseDownloadFolder_Click"/>
+            <Button Content="Open downloads" Click="OpenDownloads_Click"/>
+            <Button Content="Clear browsing data" Click="ClearBrowsingData_Click"/>
+            <TextBlock Text="Downloads and browsing data stay on this PC." FontSize="11" Foreground="#88142A33" Margin="0,8,0,0" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+    <Grid Grid.Row="2" Background="{StaticResource Sidebar}">
+      <TextBlock x:Name="StatusText" Text="Ready" Margin="12,0" VerticalAlignment="Center" FontSize="11" Foreground="#88142A33"/>
+      <TextBlock Text="Double-click a bookmark to open it" HorizontalAlignment="Right" Margin="12,0" VerticalAlignment="Center" FontSize="11" Foreground="#66142A33"/>
+    </Grid>
+  </Grid>
+</UserControl>

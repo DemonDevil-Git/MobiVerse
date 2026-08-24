@@ -1,0 +1,4 @@
+Bundled component: Microsoft Edge WebView2 Fixed Version Runtime (Windows x64)
+Version: see the adjacent *.manifest file
+Official download: https://developer.microsoft.com/microsoft-edge/webview2/
+Distribution guidance: https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution

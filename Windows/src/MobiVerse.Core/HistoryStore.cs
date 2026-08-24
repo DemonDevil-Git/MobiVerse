@@ -68,16 +68,30 @@ public sealed class ReadingPositionStore(string? storagePath = null)
 
     public int Get(string epubPath)
     {
-        var positions = Load();
-        return positions.TryGetValue(Key(epubPath), out var value) ? Math.Max(0, value) : 0;
+        return GetPosition(epubPath, legacyValueIsSection: false).PageIndex;
     }
 
     public void Save(string epubPath, int pageIndex)
     {
+        SavePosition(epubPath, new PreviewReadingPosition(0, pageIndex));
+    }
+
+    public PreviewReadingPosition GetPosition(string epubPath, bool legacyValueIsSection)
+    {
+        var positions = Load();
+        if (!positions.TryGetValue(Key(epubPath), out var value)) return new(0, 0);
+        if (value.SectionIndex is not null && value.PageIndex is not null)
+            return new(value.SectionIndex.Value, value.PageIndex.Value);
+        var legacy = Math.Max(0, value.LegacyIndex ?? 0);
+        return legacyValueIsSection ? new(legacy, 0) : new(0, legacy);
+    }
+
+    public void SavePosition(string epubPath, PreviewReadingPosition position)
+    {
         try
         {
             var positions = Load();
-            positions[Key(epubPath)] = Math.Max(0, pageIndex);
+            positions[Key(epubPath)] = new(position.SectionIndex, position.PageIndex, null);
             Directory.CreateDirectory(Path.GetDirectoryName(_storagePath)!);
             File.WriteAllText(_storagePath, JsonSerializer.Serialize(positions));
         }
@@ -85,16 +99,26 @@ public sealed class ReadingPositionStore(string? storagePath = null)
         catch (UnauthorizedAccessException) { }
     }
 
-    private Dictionary<string, int> Load()
+    private Dictionary<string, StoredReadingPosition> Load()
     {
         try
         {
-            return File.Exists(_storagePath)
-                ? JsonSerializer.Deserialize<Dictionary<string, int>>(File.ReadAllText(_storagePath)) ?? new(StringComparer.OrdinalIgnoreCase)
-                : new(StringComparer.OrdinalIgnoreCase);
+            if (!File.Exists(_storagePath)) return new(StringComparer.OrdinalIgnoreCase);
+            var json = File.ReadAllText(_storagePath);
+            try
+            {
+                return JsonSerializer.Deserialize<Dictionary<string, StoredReadingPosition>>(json) ?? new(StringComparer.OrdinalIgnoreCase);
+            }
+            catch (JsonException)
+            {
+                var legacy = JsonSerializer.Deserialize<Dictionary<string, int>>(json) ?? new(StringComparer.OrdinalIgnoreCase);
+                return legacy.ToDictionary(pair => pair.Key, pair => new StoredReadingPosition(null, null, Math.Max(0, pair.Value)), StringComparer.OrdinalIgnoreCase);
+            }
         }
         catch { return new(StringComparer.OrdinalIgnoreCase); }
     }
 
     private static string Key(string path) => Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar).ToUpperInvariant();
+
+    private sealed record StoredReadingPosition(int? SectionIndex, int? PageIndex, int? LegacyIndex);
 }

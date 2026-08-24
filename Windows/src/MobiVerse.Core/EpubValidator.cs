@@ -19,11 +19,7 @@ public sealed class EpubValidator(IProcessRunner runner, string? epubCheckPath)
         else
         {
             var result = await runner.RunAsync(epubCheckPath, [epubPath], cancellationToken: cancellationToken).ConfigureAwait(false);
-            status = result.ExitCode != 0
-                ? EpubValidationStatus.Failed
-                : result.Output.Contains("warn", StringComparison.OrdinalIgnoreCase)
-                    ? EpubValidationStatus.Warnings
-                    : EpubValidationStatus.Passed;
+            status = ValidationStatus(result.ExitCode, result.Output);
             body = string.IsNullOrWhiteSpace(result.Output) ? "EPUBCheck completed without output." : result.Output;
         }
         var report = $"""
@@ -41,5 +37,15 @@ Calibre conversion log
 """;
         await File.WriteAllTextAsync(reportPath, report, cancellationToken).ConfigureAwait(false);
         return (status, reportPath);
+    }
+
+    public static EpubValidationStatus ValidationStatus(int exitCode, string output)
+    {
+        if (exitCode != 0) return EpubValidationStatus.Failed;
+        if (output.Contains("no errors or warnings detected", StringComparison.OrdinalIgnoreCase) ||
+            output.Contains("0 errors / 0 warnings", StringComparison.OrdinalIgnoreCase)) return EpubValidationStatus.Passed;
+        return output.Contains("warning", StringComparison.OrdinalIgnoreCase) || output.Contains("warn", StringComparison.OrdinalIgnoreCase)
+            ? EpubValidationStatus.Warnings
+            : EpubValidationStatus.Passed;
     }
 }

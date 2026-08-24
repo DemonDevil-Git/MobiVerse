@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.4.1.dmg"><img src="https://img.shields.io/badge/macOS%202.4.1-Download-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse 2.4.1 for macOS"></a>
-  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.2.0-Download-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="Download MobiVerse 2.2.0 for Windows"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.5.0.dmg"><img src="https://img.shields.io/badge/macOS%202.5.0-Download-1764D8?style=for-the-badge&logo=apple&logoColor=white" alt="Download MobiVerse 2.5.0 for macOS"></a>
+  <a href="https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.3.1/MobiVerse-2.3.1-Windows11-ARM64-Setup.exe"><img src="https://img.shields.io/badge/Windows%202.3.1-Download-1764D8?style=for-the-badge&logo=windows11&logoColor=white" alt="Download MobiVerse 2.3.1 for Windows"></a>
   <a href="https://github.com/DemonDevil-Git/MobiVerse/releases"><img src="https://img.shields.io/github/v/release/DemonDevil-Git/MobiVerse?style=for-the-badge&label=Latest%20release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-111827?style=for-the-badge" alt="GPLv3 license"></a>
 </p>
@@ -25,17 +25,18 @@ https://github.com/user-attachments/assets/485accd5-569d-45ed-b25f-5643ba96d3fc
 
 Watch the [web demo](https://mobiverse-coral.vercel.app/#demo), or download the official [H.264 MP4](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo.mp4) and [original HEVC MOV](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.4.1/MobiVerse-2.4.1-Demo-Original.mov) from GitHub Releases.
 
-## What's New in MobiVerse 2.4.1
+## What's New in MobiVerse 2.5.0
 
-Released on August 11, 2026, MobiVerse 2.4.1 (14) is a macOS reliability and workspace-layout update:
+Released on August 24, 2026, MobiVerse 2.5.0 (15) is a reading, download-management, and installation-reliability update:
 
-- **Reliable first launch for new installations** — packaged localization resources now resolve from their installed location, fixing the crash that could occur the first time a new user opened the app.
-- **Correct Browse toolbar order** — the new-tab `+` button stays in the trailing action area immediately to the left of Downloads.
-- **Centered Chinese workspace control** — the Shelf/Browse selector fills its available width so the shorter Simplified Chinese labels no longer pull it visibly left.
-- **Stronger release validation** — packaging checks now launch both the packaged app and the app inside the final mounted DMG with fresh preferences and require a sustained stability window.
-- **Verified release** — 51 automated tests passed across 14 suites; the DMG also passed integrity and strict code-signature verification.
+- **Immersive EPUB reading** — reader controls and the cursor hide automatically, with full-screen and keyboard navigation available without leaving the page.
+- **Flexible comic layouts** — choose single-page, two-page spread, or continuous-scroll reading with left-to-right and right-to-left page ordering.
+- **Smoother rendering** — adaptive canvas colors, image caching, adjacent-page preloading, and lighter transitions reduce interruptions while reading.
+- **Better Browse downloads** — the Downloads panel is now a smoothly scrolling vertical list, and individual records can be removed without deleting completed book files.
+- **Realistic clean-install validation** — the final DMG is verified, copied into a clean Applications-like directory, detached, signature-checked, and cold-launched with fresh preferences.
+- **Verified release** — 51 macOS tests and 55 Windows core tests passed; package scripts and website JavaScript also passed syntax checks.
 
-[Read the complete MobiVerse 2.4.1 release notes](https://github.com/DemonDevil-Git/MobiVerse/releases/tag/v2.4.1).
+[Read the complete MobiVerse 2.5.0 release notes](https://github.com/DemonDevil-Git/MobiVerse/releases/tag/v2.5.0).
 
 ## Product Showcase
 
@@ -110,16 +111,16 @@ MobiVerse does not remove DRM. Protected or unreadable files are reported clearl
 
 ### macOS
 
-1. Download the latest DMG: [MobiVerse-2.4.1.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.4.1.dmg).
-2. Open `MobiVerse-2.4.1.dmg`.
+1. Download the latest DMG: [MobiVerse-2.5.0.dmg](https://github.com/DemonDevil-Git/MobiVerse/releases/latest/download/MobiVerse-2.5.0.dmg).
+2. Open `MobiVerse-2.5.0.dmg`.
 3. Drag `MobiVerse.app` into `Applications`, replacing the previous version when prompted.
 4. Launch MobiVerse and drop supported files into the window, or open supported files with MobiVerse from Finder.
 
-The current macOS release is MobiVerse 2.4.1 (14) for Apple Silicon (`arm64`) only.
+The current macOS release is MobiVerse 2.5.0 (15) for Apple Silicon (`arm64`) only.
 
 ### Windows 11 ARM64
 
-The current Windows release remains 2.2.0. Download and run [MobiVerse-2.2.0-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.2.0/MobiVerse-2.2.0-Windows11-ARM64-Setup.exe). The package includes the x64 MobiVerse and Calibre components used through Windows 11 ARM64 emulation, plus the native ARM64 WebView2 runtime. MobiVerse 2.4.0 is currently a macOS-only update.
+The current Windows release is MobiVerse 2.3.1 (Build 12). Download and run [MobiVerse-2.3.1-Windows11-ARM64-Setup.exe](https://github.com/DemonDevil-Git/MobiVerse/releases/download/v2.3.1/MobiVerse-2.3.1-Windows11-ARM64-Setup.exe). The package includes the x64 MobiVerse and Calibre components used through Windows 11 ARM64 emulation, plus the native ARM64 WebView2 runtime.
 
 Converted EPUB files are written next to the original source file without overwriting existing EPUBs.
 
@@ -277,7 +278,7 @@ scripts/package-dmg.sh
 The generated installer image is written to:
 
 ```text
-.build/MobiVerse-2.4.1.dmg
+.build/MobiVerse-2.5.0.dmg
 ```
 
 Development builds use ad-hoc signing by default. They are suitable for local testing, but macOS Gatekeeper will block them after download from the internet.

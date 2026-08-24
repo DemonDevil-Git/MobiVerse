@@ -31,7 +31,9 @@ public interface IConverterService
         string inputPath,
         string outputPath,
         IProgress<ConversionProgressUpdate>? progress = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        ConversionProfile profile = ConversionProfile.ComicFixedLayout,
+        EpubReadingDirection readingDirection = EpubReadingDirection.RightToLeft);
 }
 
 public interface IHistoryStore

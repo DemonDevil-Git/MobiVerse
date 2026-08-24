@@ -93,7 +93,7 @@ struct ContentView: View {
             switch alert {
             case .previewError(let message):
                 Alert(
-                    title: Text("Preview unavailable"),
+                    title: Text("Reader unavailable"),
                     message: Text(L10n.string(message)),
                     dismissButton: .default(Text("OK"))
                 )
@@ -987,6 +987,7 @@ private final class PreviewGestureRouter: ObservableObject {
     var zoomBy: ((Double) -> Void)?
     var moveBackward: (() -> Void)?
     var moveForward: (() -> Void)?
+    var toggleChrome: (() -> Void)?
 
     private var horizontalSwipeDelta = 0.0
     private var isTrackingHorizontalSwipe = false
@@ -1001,6 +1002,7 @@ private final class PreviewGestureRouter: ObservableObject {
         zoomBy = nil
         moveBackward = nil
         moveForward = nil
+        toggleChrome = nil
         finishHorizontalSwipe()
     }
 
@@ -1042,6 +1044,9 @@ private final class PreviewGestureRouter: ObservableObject {
         guard event.modifierFlags.intersection(unsupportedModifiers).isEmpty else { return false }
 
         switch event.keyCode {
+        case 49:
+            toggleChrome?()
+            return toggleChrome != nil
         case 123:
             if canMoveBackward {
                 moveBackward?()
@@ -1200,6 +1205,8 @@ private final class EpubPreviewWindowController: NSWindowController, NSWindowDel
         window.title = book.title
         window.titleVisibility = .hidden
         window.toolbarStyle = .unifiedCompact
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = .black
         window.collectionBehavior = [.fullScreenPrimary, .managed]
         window.minSize = NSSize(width: 780, height: 620)
         super.init(window: window)
@@ -1476,7 +1483,7 @@ private struct TaskRow: View {
             }
 
             HStack(spacing: 7) {
-                TaskActionButton(title: "Preview", icon: "book.pages", enabled: canPreview, showsTitle: true, action: preview)
+                TaskActionButton(title: "Read", icon: "book.pages", enabled: canPreview, showsTitle: true, action: preview)
                 TaskActionButton(title: "Reveal", icon: "folder", enabled: task.outputURL != nil && !isOutputMissing, showsTitle: true, action: revealOutput)
                 TaskActionButton(title: "Report", icon: "doc.text", enabled: task.reportURL != nil, showsTitle: true, action: openReport)
                 TaskActionButton(title: "Delete EPUB", icon: "trash", enabled: canDelete, role: .destructive, action: deleteOutput)
@@ -1606,64 +1613,19 @@ private struct EpubPreviewView: View {
     let savePosition: (PreviewReadingPosition) -> Void
     let toggleFullScreen: () -> Void
     let close: () -> Void
+    @State private var isChromeVisible = true
+    @State private var chromeHideTask: Task<Void, Never>?
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(MobiPalette.cream.opacity(0.72))
-                    Image(systemName: "book.pages.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(MobiPalette.sage)
-                }
-                .frame(width: 38, height: 38)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(book.title)
-                        .font(.system(size: 17, weight: .semibold, design: .serif))
-                        .foregroundStyle(MobiPalette.ink)
-                        .lineLimit(1)
-                    Text(modeLabel)
-                        .font(.caption)
-                        .foregroundStyle(MobiPalette.ink.opacity(0.54))
-                }
-                Spacer()
-
-                Button {
-                    toggleFullScreen()
-                } label: {
-                    Label(fullScreenButtonLabel, systemImage: fullScreenButtonIcon)
-                        .frame(width: 30, height: 26)
-                }
-                .buttonStyle(.bordered)
-                .tint(MobiPalette.sage)
-                .help(fullScreenButtonLabel)
-
-                Button {
-                    close()
-                } label: {
-                    Label("Close Preview", systemImage: "xmark")
-                        .frame(width: 30, height: 26)
-                }
-                .buttonStyle(.bordered)
-                .tint(MobiPalette.ink.opacity(0.72))
-                .help("Close preview")
-            }
-            .labelStyle(.iconOnly)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 9)
-            .background(MobiPalette.sidebar)
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(MobiPalette.ink.opacity(0.08)).frame(height: 1)
-            }
-
+        ZStack {
             switch book.mode {
             case .imagePages(let pages):
                 ComicImagePreview(
                     pages: pages,
+                    readingDirection: book.readingDirection,
                     gestureRouter: gestureRouter,
                     initialPageIndex: initialPosition.pageIndex,
+                    isChromeVisible: isChromeVisible,
                     savePageIndex: { pageIndex in
                         savePosition(PreviewReadingPosition(sectionIndex: 0, pageIndex: pageIndex))
                     }
@@ -1672,12 +1634,100 @@ private struct EpubPreviewView: View {
                 TextEpubPreview(
                     spineURLs: spineURLs,
                     readAccessURL: book.contentRootDirectory,
+                    readingDirection: book.readingDirection,
                     gestureRouter: gestureRouter,
                     initialPosition: initialPosition,
+                    isChromeVisible: isChromeVisible,
                     savePosition: savePosition
                 )
             }
+
+            if isChromeVisible {
+                readerHeader
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
+        .background(Color.black)
+        .onContinuousHover { phase in
+            switch phase {
+            case .active:
+                revealChrome()
+            case .ended:
+                scheduleChromeHide()
+            }
+        }
+        .onAppear {
+            gestureRouter.toggleChrome = toggleChrome
+            scheduleChromeHide()
+        }
+        .onDisappear {
+            chromeHideTask?.cancel()
+            gestureRouter.toggleChrome = nil
+        }
+        .onChange(of: windowState.isFullScreen) { _, _ in
+            revealChrome()
+        }
+        .onChange(of: isChromeVisible) { _, visible in
+            if !visible {
+                NSCursor.setHiddenUntilMouseMoves(true)
+            }
+        }
+    }
+
+    private var readerHeader: some View {
+        HStack(spacing: 11) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(MobiPalette.cream.opacity(0.76))
+                Image(systemName: "book.pages.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(MobiPalette.sage)
+            }
+            .frame(width: 34, height: 34)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(book.title)
+                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .foregroundStyle(MobiPalette.ink)
+                    .lineLimit(1)
+                Text(modeLabel)
+                    .font(.caption2)
+                    .foregroundStyle(MobiPalette.ink.opacity(0.54))
+            }
+
+            Spacer(minLength: 20)
+
+            readerHeaderButton(
+                title: fullScreenButtonLabel,
+                icon: fullScreenButtonIcon,
+                action: toggleFullScreen
+            )
+            readerHeaderButton(title: "Close Reader", icon: "xmark", action: close)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.20), radius: 18, y: 8)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+    }
+
+    private func readerHeaderButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 30, height: 30)
+                .background(MobiPalette.ink.opacity(0.06), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(MobiPalette.ink.opacity(0.74))
+        .help(L10n.string(title))
+        .accessibilityLabel(L10n.string(title))
     }
 
     private var modeLabel: String {
@@ -1685,7 +1735,7 @@ private struct EpubPreviewView: View {
         case .imagePages(let pages):
             L10n.format("%lld image pages", pages.count)
         case .web(let spineURLs):
-            L10n.format("Text EPUB preview · %lld sections", spineURLs.count)
+            L10n.format("Text EPUB · %lld sections", spineURLs.count)
         }
     }
 
@@ -1698,182 +1748,492 @@ private struct EpubPreviewView: View {
             ? "arrow.down.right.and.arrow.up.left"
             : "arrow.up.left.and.arrow.down.right"
     }
+
+    private func toggleChrome() {
+        chromeHideTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.20)) {
+            isChromeVisible.toggle()
+        }
+        if isChromeVisible {
+            scheduleChromeHide()
+        }
+    }
+
+    private func revealChrome() {
+        chromeHideTask?.cancel()
+        if !isChromeVisible {
+            withAnimation(.easeOut(duration: 0.18)) {
+                isChromeVisible = true
+            }
+        }
+        scheduleChromeHide()
+    }
+
+    private func scheduleChromeHide() {
+        chromeHideTask?.cancel()
+        chromeHideTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.8))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.28)) {
+                isChromeVisible = false
+            }
+        }
+    }
+}
+
+private enum ComicReadingMode: String, CaseIterable, Identifiable {
+    case single
+    case spread
+    case continuous
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .single: L10n.string("Single page")
+        case .spread: L10n.string("Two-page spread")
+        case .continuous: L10n.string("Continuous scroll")
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .single: "rectangle.portrait"
+        case .spread: "book.pages"
+        case .continuous: "rectangle.stack"
+        }
+    }
+}
+
+private struct ComicPageUnit: Identifiable {
+    let id: Int
+    let pageIndices: [Int]
+}
+
+@MainActor
+private final class EpubPreviewImageCache {
+    static let shared = EpubPreviewImageCache()
+
+    private let images = NSCache<NSURL, NSImage>()
+    private let edgeColors = NSCache<NSURL, NSColor>()
+    private var dataLoads: [URL: Task<Data?, Never>] = [:]
+
+    func image(for url: URL) async -> NSImage? {
+        if let cached = images.object(forKey: url as NSURL) {
+            return cached
+        }
+
+        let load: Task<Data?, Never>
+        if let existing = dataLoads[url] {
+            load = existing
+        } else {
+            load = Task.detached(priority: .utility) {
+                try? Data(contentsOf: url, options: [.mappedIfSafe])
+            }
+            dataLoads[url] = load
+        }
+
+        let data = await load.value
+        dataLoads[url] = nil
+        guard let data, let image = NSImage(data: data) else { return nil }
+        images.setObject(image, forKey: url as NSURL)
+        return image
+    }
+
+    func prefetch(_ urls: [URL]) async {
+        for url in urls {
+            _ = await image(for: url)
+        }
+    }
+
+    func canvasColor(for url: URL) async -> Color {
+        if let cached = edgeColors.object(forKey: url as NSURL) {
+            return Color(nsColor: cached)
+        }
+        guard let image = await image(for: url), let sampled = sampleEdgeTint(from: image) else {
+            return Color(red: 0.045, green: 0.055, blue: 0.06)
+        }
+        edgeColors.setObject(sampled, forKey: url as NSURL)
+        return Color(nsColor: sampled)
+    }
+
+    private func sampleEdgeTint(from image: NSImage) -> NSColor? {
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: 24,
+            pixelsHigh: 24,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
+            return nil
+        }
+
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+        image.draw(in: NSRect(x: 0, y: 0, width: 24, height: 24))
+        NSGraphicsContext.restoreGraphicsState()
+
+        var red = 0.0
+        var green = 0.0
+        var blue = 0.0
+        var count = 0.0
+        for index in 0..<24 {
+            for point in [(index, 0), (index, 23), (0, index), (23, index)] {
+                guard let color = bitmap.colorAt(x: point.0, y: point.1)?.usingColorSpace(.deviceRGB) else { continue }
+                red += color.redComponent
+                green += color.greenComponent
+                blue += color.blueComponent
+                count += 1
+            }
+        }
+        guard count > 0 else { return nil }
+        let average = NSColor(
+            calibratedRed: red / count,
+            green: green / count,
+            blue: blue / count,
+            alpha: 1
+        )
+        let nearBlack = NSColor(calibratedRed: 0.025, green: 0.03, blue: 0.034, alpha: 1)
+        return average.blended(withFraction: 0.82, of: nearBlack) ?? nearBlack
+    }
 }
 
 private struct ComicImagePreview: View {
     let pages: [EpubImagePreviewPage]
+    let readingDirection: EpubReadingDirection
     @ObservedObject var gestureRouter: PreviewGestureRouter
+    let isChromeVisible: Bool
     let savePageIndex: (Int) -> Void
+    @AppStorage("MobiVerseComicReadingMode") private var readingModeRawValue = ComicReadingMode.single.rawValue
     @State private var pageIndex: Int
-    @State private var visiblePageIndex: Int?
+    @State private var visibleUnitID: Int?
+    @State private var continuousVisiblePageID: Int?
     @State private var zoom = 1.0
+    @State private var canvasColor = Color(red: 0.045, green: 0.055, blue: 0.06)
 
     init(
         pages: [EpubImagePreviewPage],
+        readingDirection: EpubReadingDirection,
         gestureRouter: PreviewGestureRouter,
         initialPageIndex: Int,
+        isChromeVisible: Bool,
         savePageIndex: @escaping (Int) -> Void
     ) {
         let restoredPageIndex = min(max(initialPageIndex, 0), max(pages.count - 1, 0))
         self.pages = pages
+        self.readingDirection = readingDirection
         self.gestureRouter = gestureRouter
+        self.isChromeVisible = isChromeVisible
         self.savePageIndex = savePageIndex
         _pageIndex = State(initialValue: restoredPageIndex)
-        _visiblePageIndex = State(initialValue: restoredPageIndex)
+        _visibleUnitID = State(initialValue: restoredPageIndex)
+        _continuousVisiblePageID = State(initialValue: restoredPageIndex)
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            GeometryReader { proxy in
-                ZStack {
-                    Color.black
-                    ScrollViewReader { scrollProxy in
-                        ScrollView(.horizontal) {
-                            LazyHStack(spacing: 0) {
-                                ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
-                                    pageCanvas(for: page, in: proxy.size)
-                                        .frame(width: proxy.size.width, height: proxy.size.height)
-                                        .id(index)
-                                        .scrollTransition(.interactive, axis: .horizontal) { content, phase in
-                                            content
-                                                .opacity(phase.isIdentity ? 1 : 0.92)
-                                                .scaleEffect(phase.isIdentity ? 1 : 0.985)
-                                        }
-                                }
+        GeometryReader { proxy in
+            ZStack {
+                canvasBackground
+
+                if readingMode == .continuous {
+                    continuousReader(in: proxy.size)
+                        .transition(.opacity)
+                } else {
+                    pagedReader(in: proxy.size)
+                        .transition(.opacity)
+                }
+
+                if isChromeVisible {
+                    readerControls
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+        }
+        .onAppear {
+            synchronizeVisiblePosition()
+            configureGestureRouter()
+        }
+        .onDisappear {
+            savePageIndex(pageIndex)
+            gestureRouter.resetHandlers()
+        }
+        .onChange(of: pageIndex) { _, newPageIndex in
+            savePageIndex(newPageIndex)
+            configureGestureRouter()
+        }
+        .onChange(of: pages.count) { _, _ in
+            configureGestureRouter()
+        }
+        .onChange(of: readingModeRawValue) { _, _ in
+            zoom = 1
+            synchronizeVisiblePosition()
+            configureGestureRouter()
+        }
+        .task(id: pageIndex) {
+            await preparePageContext()
+        }
+    }
+
+    private var readingMode: ComicReadingMode {
+        ComicReadingMode(rawValue: readingModeRawValue) ?? .single
+    }
+
+    private var pageUnits: [ComicPageUnit] {
+        guard readingMode == .spread, !pages.isEmpty else {
+            return pages.indices.map { ComicPageUnit(id: $0, pageIndices: [$0]) }
+        }
+
+        var units = [ComicPageUnit(id: 0, pageIndices: [0])]
+        var index = 1
+        while index < pages.count {
+            let end = min(index + 2, pages.count)
+            units.append(ComicPageUnit(id: index, pageIndices: Array(index..<end)))
+            index = end
+        }
+        return units
+    }
+
+    private var currentUnitIndex: Int {
+        pageUnits.firstIndex(where: { $0.pageIndices.contains(pageIndex) }) ?? 0
+    }
+
+    private var canMoveBackward: Bool {
+        readingMode == .continuous ? pageIndex > 0 : currentUnitIndex > 0
+    }
+
+    private var canMoveForward: Bool {
+        readingMode == .continuous
+            ? pageIndex < pages.count - 1
+            : currentUnitIndex < pageUnits.count - 1
+    }
+
+    private var pageCounter: String {
+        guard readingMode == .spread, pageUnits.indices.contains(currentUnitIndex) else {
+            return "\(pageIndex + 1) / \(pages.count)"
+        }
+        let indices = pageUnits[currentUnitIndex].pageIndices
+        guard let first = indices.first, let last = indices.last, first != last else {
+            return "\(pageIndex + 1) / \(pages.count)"
+        }
+        return "\(first + 1)–\(last + 1) / \(pages.count)"
+    }
+
+    private var canvasBackground: some View {
+        LinearGradient(
+            colors: [canvasColor.opacity(0.92), Color.black.opacity(0.96), canvasColor.opacity(0.72)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay(Color.black.opacity(0.16))
+        .ignoresSafeArea()
+    }
+
+    private func pagedReader(in size: CGSize) -> some View {
+        ScrollViewReader { scrollProxy in
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 0) {
+                    ForEach(pageUnits) { unit in
+                        pageUnitCanvas(unit, in: size)
+                            .frame(width: size.width, height: size.height)
+                            .id(unit.id)
+                            .scrollTransition(.interactive, axis: .horizontal) { content, phase in
+                                content
+                                    .opacity(phase.isIdentity ? 1 : 0.84)
+                                    .scaleEffect(phase.isIdentity ? 1 : 0.972)
+                                    .offset(x: phase.isIdentity ? 0 : phase.value * 18)
                             }
-                            .scrollTargetLayout()
-                        }
-                        .scrollIndicators(.hidden)
-                        .scrollTargetBehavior(.paging)
-                        .scrollPosition(id: $visiblePageIndex)
-                        .onAppear {
-                            visiblePageIndex = pageIndex
-                            recenterCurrentPage(with: scrollProxy)
-                        }
-                        .onChange(of: visiblePageIndex) { _, newValue in
-                            guard let newValue else { return }
-                            pageIndex = min(max(newValue, 0), max(pages.count - 1, 0))
-                        }
-                        .onChange(of: proxy.size) { _, _ in
-                            recenterCurrentPage(with: scrollProxy)
-                        }
-                        .onChange(of: zoom) { _, _ in
-                            recenterCurrentPage(with: scrollProxy)
-                        }
                     }
                 }
+                .scrollTargetLayout()
             }
-            .onAppear(perform: configureGestureRouter)
-            .onDisappear {
-                savePageIndex(pageIndex)
-                gestureRouter.resetHandlers()
+            .environment(\.layoutDirection, readingDirection == .rightToLeft ? .rightToLeft : .leftToRight)
+            .scrollIndicators(.hidden)
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $visibleUnitID)
+            .onAppear {
+                recenterCurrentUnit(with: scrollProxy, animated: false)
             }
-            .onChange(of: pageIndex) { _, newPageIndex in
-                savePageIndex(newPageIndex)
-                configureGestureRouter()
+            .onChange(of: visibleUnitID) { _, newValue in
+                guard
+                    let newValue,
+                    let unit = pageUnits.first(where: { $0.id == newValue }),
+                    let logicalPage = unit.pageIndices.first
+                else { return }
+                pageIndex = logicalPage
             }
-            .onChange(of: pages.count) { _, _ in
-                configureGestureRouter()
+            .onChange(of: size) { _, _ in
+                recenterCurrentUnit(with: scrollProxy, animated: false)
             }
+            .onChange(of: zoom) { _, _ in
+                recenterCurrentUnit(with: scrollProxy, animated: false)
+            }
+        }
+    }
 
-            HStack(spacing: 12) {
-                Button {
-                    moveBackward()
-                } label: {
-                    Label("Previous", systemImage: "chevron.left")
+    private func continuousReader(in size: CGSize) -> some View {
+        ScrollViewReader { scrollProxy in
+            ScrollView(.vertical) {
+                LazyVStack(spacing: 18) {
+                    ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
+                        let pageSize = continuousPageSize(for: page, in: size)
+                        EpubImagePage(page: page)
+                            .frame(width: pageSize.width, height: pageSize.height)
+                            .background(Color.white)
+                            .shadow(color: .black.opacity(0.30), radius: 16, y: 8)
+                            .id(index)
+                            .accessibilityLabel(page.title)
+                    }
                 }
-                .disabled(pageIndex == 0)
+                .scrollTargetLayout()
+                .padding(.top, 74)
+                .padding(.bottom, 90)
+                .frame(maxWidth: .infinity)
+            }
+            .scrollIndicators(.hidden)
+            .scrollPosition(id: $continuousVisiblePageID, anchor: .top)
+            .onAppear {
+                continuousVisiblePageID = pageIndex
+                scrollProxy.scrollTo(pageIndex, anchor: .top)
+            }
+            .onChange(of: continuousVisiblePageID) { _, newValue in
+                guard let newValue else { return }
+                pageIndex = min(max(newValue, 0), max(pages.count - 1, 0))
+            }
+        }
+    }
 
-                Slider(
-                    value: Binding(
-                        get: { Double(pageIndex) },
-                        set: {
-                            visiblePageIndex = min(max(Int($0.rounded()), 0), max(pages.count - 1, 0))
-                        }
-                    ),
-                    in: 0...Double(max(pages.count - 1, 0))
+    private var readerControls: some View {
+        HStack(spacing: 9) {
+            if readingDirection == .rightToLeft {
+                navigationButton(title: "Next", icon: "chevron.left", enabled: canMoveForward, action: moveForward)
+            } else {
+                navigationButton(title: "Previous", icon: "chevron.left", enabled: canMoveBackward, action: moveBackward)
+            }
+
+            Slider(
+                value: Binding(
+                    get: { Double(pageIndex) },
+                    set: { jump(to: Int($0.rounded())) }
+                ),
+                in: 0...Double(max(pages.count - 1, 0))
+            )
+            .tint(MobiPalette.sage)
+            .frame(minWidth: 150, maxWidth: 390)
+            .disabled(pages.count <= 1)
+
+            Text(pageCounter)
+                .font(.caption.monospacedDigit().weight(.medium))
+                .foregroundStyle(MobiPalette.ink.opacity(0.68))
+                .frame(width: 92)
+
+            if readingDirection == .rightToLeft {
+                navigationButton(title: "Previous", icon: "chevron.right", enabled: canMoveBackward, action: moveBackward)
+            } else {
+                navigationButton(title: "Next", icon: "chevron.right", enabled: canMoveForward, action: moveForward)
+            }
+
+            Divider().frame(height: 22)
+
+            Menu {
+                ForEach(ComicReadingMode.allCases) { mode in
+                    Button {
+                        readingModeRawValue = mode.rawValue
+                    } label: {
+                        Label(mode.title, systemImage: readingMode == mode ? "checkmark" : mode.icon)
+                    }
+                }
+            } label: {
+                Image(systemName: readingMode.icon)
+                    .frame(width: 28, height: 28)
+            }
+            .menuStyle(.borderlessButton)
+            .help("Reading mode")
+            .accessibilityLabel("Reading mode")
+
+            controlButton(title: "Zoom out", icon: "minus.magnifyingglass") { zoomBy(-0.1) }
+            Button("Fit") { zoom = 1 }
+                .buttonStyle(.plain)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(MobiPalette.ink.opacity(0.72))
+                .frame(height: 28)
+            controlButton(title: "Zoom in", icon: "plus.magnifyingglass") { zoomBy(0.1) }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.24), radius: 18, y: 8)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 14)
+    }
+
+    private func navigationButton(
+        title: String,
+        icon: String,
+        enabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .bold))
+                .frame(width: 30, height: 30)
+                .background(MobiPalette.ink.opacity(0.06), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(MobiPalette.ink.opacity(enabled ? 0.74 : 0.20))
+        .disabled(!enabled)
+        .help(L10n.string(title))
+        .accessibilityLabel(L10n.string(title))
+    }
+
+    private func controlButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .frame(width: 28, height: 28)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(MobiPalette.ink.opacity(0.72))
+        .help(L10n.string(title))
+        .accessibilityLabel(L10n.string(title))
+    }
+
+    private func pageUnitCanvas(_ unit: ComicPageUnit, in containerSize: CGSize) -> some View {
+        let logicalIndices = unit.pageIndices
+        let displayedIndices: [Int] = readingDirection == .rightToLeft
+            ? Array(logicalIndices.reversed())
+            : logicalIndices
+        let pageArea = CGSize(
+            width: max(containerSize.width - 70, 1),
+            height: max(containerSize.height - 42, 1)
+        )
+        let availablePageWidth = max((pageArea.width - CGFloat(max(logicalIndices.count - 1, 0)) * 3) / CGFloat(max(logicalIndices.count, 1)), 1)
+
+        return HStack(spacing: 3) {
+            ForEach(Array(displayedIndices), id: \.self) { index in
+                let page = pages[index]
+                let fitted = fittedPageSize(
+                    for: page,
+                    in: CGSize(width: availablePageWidth, height: pageArea.height)
                 )
-                .disabled(pages.count <= 1)
-
-                Text("\(pageIndex + 1) / \(pages.count)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: 76)
-
-                Button {
-                    moveForward()
-                } label: {
-                    Label("Next", systemImage: "chevron.right")
-                }
-                .disabled(pageIndex >= pages.count - 1)
-
-                Divider()
-                    .frame(height: 18)
-
-                Button {
-                    zoomBy(-0.1)
-                } label: {
-                    Label("Zoom out", systemImage: "minus.magnifyingglass")
-                }
-
-                Button {
-                    zoom = 1.0
-                } label: {
-                    Text("Fit")
-                }
-
-                Button {
-                    zoomBy(0.1)
-                } label: {
-                    Label("Zoom in", systemImage: "plus.magnifyingglass")
-                }
-            }
-            .labelStyle(.iconOnly)
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .padding(12)
-            .background(.bar)
-        }
-    }
-
-    private func moveBackward() {
-        guard pageIndex > 0 else { return }
-        withAnimation(.easeOut(duration: 0.22)) {
-            visiblePageIndex = pageIndex - 1
-        }
-    }
-
-    private func moveForward() {
-        guard pageIndex < pages.count - 1 else { return }
-        withAnimation(.easeOut(duration: 0.22)) {
-            visiblePageIndex = pageIndex + 1
-        }
-    }
-
-    private func zoomBy(_ delta: Double) {
-        zoom = min(3.0, max(0.5, zoom + delta))
-    }
-
-    private func recenterCurrentPage(with scrollProxy: ScrollViewProxy) {
-        let currentPageIndex = min(max(pageIndex, 0), max(pages.count - 1, 0))
-        DispatchQueue.main.async {
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
-                visiblePageIndex = currentPageIndex
-                scrollProxy.scrollTo(currentPageIndex, anchor: .center)
+                EpubImagePage(page: page)
+                    .frame(width: fitted.width * zoom, height: fitted.height * zoom)
+                    .background(Color.white)
+                    .shadow(color: .black.opacity(0.38), radius: 18, y: 8)
+                    .accessibilityLabel(page.title)
             }
         }
-    }
-
-    private func configureGestureRouter() {
-        gestureRouter.canMoveBackward = pageIndex > 0
-        gestureRouter.canMoveForward = pageIndex < pages.count - 1
-        gestureRouter.handleSwipeChanged = nil
-        gestureRouter.handleSwipeEnded = nil
-        gestureRouter.zoomBy = zoomBy
-        gestureRouter.moveBackward = moveBackward
-        gestureRouter.moveForward = moveForward
+        .environment(\.layoutDirection, .leftToRight)
+        .frame(width: containerSize.width, height: containerSize.height, alignment: .center)
+        .clipped()
     }
 
     private func fittedPageSize(for page: EpubImagePreviewPage, in containerSize: CGSize) -> CGSize {
@@ -1882,21 +2242,116 @@ private struct ComicImagePreview: View {
         return CGSize(width: pageSize.width * scale, height: pageSize.height * scale)
     }
 
-    private func pageCanvas(for page: EpubImagePreviewPage, in containerSize: CGSize) -> some View {
-        let fittedSize = fittedPageSize(for: page, in: containerSize)
-        let scaledSize = CGSize(
-            width: fittedSize.width * zoom,
-            height: fittedSize.height * zoom
-        )
-        return ZStack {
-            Color.black
-            EpubImagePage(page: page)
-                .frame(width: scaledSize.width, height: scaledSize.height)
-        }
-        .frame(width: containerSize.width, height: containerSize.height, alignment: .center)
-        .clipped()
+    private func continuousPageSize(for page: EpubImagePreviewPage, in containerSize: CGSize) -> CGSize {
+        let width = min(max(containerSize.width - 96, 320), 920) * zoom
+        let aspect = CGFloat(max(page.height, 1)) / CGFloat(max(page.width, 1))
+        return CGSize(width: width, height: width * aspect)
     }
 
+    private func moveBackward() {
+        guard canMoveBackward else { return }
+        if readingMode == .continuous {
+            jump(to: pageIndex - 1)
+        } else {
+            let target = pageUnits[currentUnitIndex - 1]
+            show(unit: target)
+        }
+    }
+
+    private func moveForward() {
+        guard canMoveForward else { return }
+        if readingMode == .continuous {
+            jump(to: pageIndex + 1)
+        } else {
+            let target = pageUnits[currentUnitIndex + 1]
+            show(unit: target)
+        }
+    }
+
+    private func jump(to requestedPage: Int) {
+        let targetPage = min(max(requestedPage, 0), max(pages.count - 1, 0))
+        pageIndex = targetPage
+        withAnimation(.snappy(duration: 0.26)) {
+            if readingMode == .continuous {
+                continuousVisiblePageID = targetPage
+            } else if let unit = pageUnits.first(where: { $0.pageIndices.contains(targetPage) }) {
+                visibleUnitID = unit.id
+            }
+        }
+    }
+
+    private func show(unit: ComicPageUnit) {
+        guard let firstPage = unit.pageIndices.first else { return }
+        pageIndex = firstPage
+        withAnimation(.snappy(duration: 0.26)) {
+            visibleUnitID = unit.id
+        }
+    }
+
+    private func zoomBy(_ delta: Double) {
+        zoom = min(2.5, max(0.6, zoom + delta))
+    }
+
+    private func synchronizeVisiblePosition() {
+        DispatchQueue.main.async {
+            if readingMode == .continuous {
+                continuousVisiblePageID = pageIndex
+            } else if let unit = pageUnits.first(where: { $0.pageIndices.contains(pageIndex) }) {
+                visibleUnitID = unit.id
+            }
+        }
+    }
+
+    private func recenterCurrentUnit(with scrollProxy: ScrollViewProxy, animated: Bool) {
+        guard let unit = pageUnits.first(where: { $0.pageIndices.contains(pageIndex) }) else { return }
+        DispatchQueue.main.async {
+            var transaction = Transaction()
+            transaction.disablesAnimations = !animated
+            withTransaction(transaction) {
+                visibleUnitID = unit.id
+                scrollProxy.scrollTo(unit.id, anchor: .center)
+            }
+        }
+    }
+
+    private func configureGestureRouter() {
+        let logicalBackward = canMoveBackward
+        let logicalForward = canMoveForward
+        gestureRouter.handleSwipeChanged = nil
+        gestureRouter.handleSwipeEnded = nil
+        if readingMode == .continuous {
+            gestureRouter.zoomBy = nil
+        } else {
+            gestureRouter.zoomBy = { delta in
+                zoomBy(delta)
+            }
+        }
+
+        if readingDirection == .rightToLeft {
+            gestureRouter.canMoveBackward = logicalForward
+            gestureRouter.canMoveForward = logicalBackward
+            gestureRouter.moveBackward = moveForward
+            gestureRouter.moveForward = moveBackward
+        } else {
+            gestureRouter.canMoveBackward = logicalBackward
+            gestureRouter.canMoveForward = logicalForward
+            gestureRouter.moveBackward = moveBackward
+            gestureRouter.moveForward = moveForward
+        }
+    }
+
+    private func preparePageContext() async {
+        guard pages.indices.contains(pageIndex) else { return }
+        let lower = max(pageIndex - 2, 0)
+        let upper = min(pageIndex + 3, pages.count - 1)
+        await EpubPreviewImageCache.shared.prefetch((lower...upper).map { pages[$0].imageURL })
+        guard !Task.isCancelled else { return }
+        let newColor = await EpubPreviewImageCache.shared.canvasColor(for: pages[pageIndex].imageURL)
+        guard !Task.isCancelled else { return }
+        withAnimation(.easeInOut(duration: 0.45)) {
+            canvasColor = newColor
+        }
+    }
 }
 
 private struct EpubImagePage: View {
@@ -1914,10 +2369,11 @@ private struct EpubImagePage: View {
             } else {
                 ProgressView()
                     .controlSize(.small)
+                    .tint(.white)
             }
         }
         .task(id: page.id) {
-            image = NSImage(contentsOf: page.imageURL)
+            image = await EpubPreviewImageCache.shared.image(for: page.imageURL)
         }
     }
 }
@@ -1999,8 +2455,10 @@ private struct TextReaderAppearance: Equatable {
 private struct TextEpubPreview: View {
     let spineURLs: [URL]
     let readAccessURL: URL
+    let readingDirection: EpubReadingDirection
     @ObservedObject var gestureRouter: PreviewGestureRouter
     let savePosition: (PreviewReadingPosition) -> Void
+    let isChromeVisible: Bool
     @State private var sectionIndex: Int
     @State private var pageIndex: Int
     @State private var pageCount = 1
@@ -2013,13 +2471,17 @@ private struct TextEpubPreview: View {
     init(
         spineURLs: [URL],
         readAccessURL: URL,
+        readingDirection: EpubReadingDirection,
         gestureRouter: PreviewGestureRouter,
         initialPosition: PreviewReadingPosition,
+        isChromeVisible: Bool,
         savePosition: @escaping (PreviewReadingPosition) -> Void
     ) {
         self.spineURLs = spineURLs
         self.readAccessURL = readAccessURL
+        self.readingDirection = readingDirection
         self.gestureRouter = gestureRouter
+        self.isChromeVisible = isChromeVisible
         self.savePosition = savePosition
         _sectionIndex = State(
             initialValue: min(max(initialPosition.sectionIndex, 0), max(spineURLs.count - 1, 0))
@@ -2028,7 +2490,7 @@ private struct TextEpubPreview: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack {
             GeometryReader { proxy in
                 ZStack {
                     theme.canvasColor
@@ -2041,22 +2503,31 @@ private struct TextEpubPreview: View {
                         startURL: spineURLs[sectionIndex],
                         readAccessURL: readAccessURL,
                         pageIndex: pageIndex,
-                        viewportSize: CGSize(width: max(proxy.size.width - 36, 1), height: max(proxy.size.height - 34, 1)),
+                        viewportSize: CGSize(width: max(proxy.size.width - 52, 1), height: max(proxy.size.height - 50, 1)),
                         appearance: appearance,
                         onPageCountChanged: updatePageCount
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
-                    readerPositionBadge
-                        .padding(13)
-                        .allowsHitTesting(false)
+                    if isChromeVisible {
+                        readerPositionBadge
+                            .padding(.horizontal, 13)
+                            .padding(.top, 62)
+                            .padding(.bottom, 13)
+                            .allowsHitTesting(false)
+                            .transition(.opacity)
+                    }
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 17)
+                .padding(.horizontal, 26)
+                .padding(.vertical, 25)
                 .background(theme.canvasColor)
             }
 
-            readerControls
+            if isChromeVisible {
+                readerControls
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .onAppear(perform: configureGestureRouter)
         .onDisappear {
@@ -2102,12 +2573,21 @@ private struct TextEpubPreview: View {
 
     private var readerControls: some View {
         HStack(spacing: 14) {
-            readerNavigationButton(
-                title: "Previous page",
-                icon: "chevron.left",
-                enabled: canMoveBackward,
-                action: moveBackward
-            )
+            if readingDirection == .rightToLeft {
+                readerNavigationButton(
+                    title: "Next page",
+                    icon: "chevron.left",
+                    enabled: canMoveForward,
+                    action: moveForward
+                )
+            } else {
+                readerNavigationButton(
+                    title: "Previous page",
+                    icon: "chevron.left",
+                    enabled: canMoveBackward,
+                    action: moveBackward
+                )
+            }
 
             VStack(spacing: 5) {
                 ProgressView(value: overallProgress)
@@ -2124,12 +2604,21 @@ private struct TextEpubPreview: View {
             }
             .frame(maxWidth: 420)
 
-            readerNavigationButton(
-                title: "Next page",
-                icon: "chevron.right",
-                enabled: canMoveForward,
-                action: moveForward
-            )
+            if readingDirection == .rightToLeft {
+                readerNavigationButton(
+                    title: "Previous page",
+                    icon: "chevron.right",
+                    enabled: canMoveBackward,
+                    action: moveBackward
+                )
+            } else {
+                readerNavigationButton(
+                    title: "Next page",
+                    icon: "chevron.right",
+                    enabled: canMoveForward,
+                    action: moveForward
+                )
+            }
 
             Divider().frame(height: 28)
 
@@ -2148,12 +2637,16 @@ private struct TextEpubPreview: View {
                 appearancePanel
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 11)
-        .background(MobiPalette.sidebar)
-        .overlay(alignment: .top) {
-            Rectangle().fill(MobiPalette.ink.opacity(0.08)).frame(height: 1)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1)
         }
+        .shadow(color: .black.opacity(0.18), radius: 16, y: 7)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 15)
     }
 
     private func readerNavigationButton(
@@ -2327,13 +2820,20 @@ private struct TextEpubPreview: View {
     }
 
     private func configureGestureRouter() {
-        gestureRouter.canMoveBackward = canMoveBackward
-        gestureRouter.canMoveForward = canMoveForward
         gestureRouter.handleSwipeChanged = nil
         gestureRouter.handleSwipeEnded = nil
         gestureRouter.zoomBy = nil
-        gestureRouter.moveBackward = moveBackward
-        gestureRouter.moveForward = moveForward
+        if readingDirection == .rightToLeft {
+            gestureRouter.canMoveBackward = canMoveForward
+            gestureRouter.canMoveForward = canMoveBackward
+            gestureRouter.moveBackward = moveForward
+            gestureRouter.moveForward = moveBackward
+        } else {
+            gestureRouter.canMoveBackward = canMoveBackward
+            gestureRouter.canMoveForward = canMoveForward
+            gestureRouter.moveBackward = moveBackward
+            gestureRouter.moveForward = moveForward
+        }
     }
 }
 

@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    macOS-only packaging project. It compiles the same WPF code while loading
+    loose XAML at runtime, avoiding the Windows-only WPF markup compiler.
+    The normal Windows project remains MobiVerse.App.csproj.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>MobiVerse</AssemblyName>
+    <RootNamespace>MobiVerse.App</RootNamespace>
+    <StartupObject>MobiVerse.App.App</StartupObject>
+    <DefineConstants>RUNTIME_XAML</DefineConstants>
+    <Version>2.3.1</Version>
+    <AssemblyVersion>2.3.1.0</AssemblyVersion>
+    <FileVersion>2.3.1.12</FileVersion>
+    <InformationalVersion>2.3.1+12</InformationalVersion>
+    <UseAppHost>false</UseAppHost>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MobiVerse.Core\MobiVerse.Core.csproj" />
+    <Compile Include="*.cs" />
+    <Reference Include="$(WpfReferencePath)/*.dll" Private="false" />
+    <Reference Include="$(WebView2CorePath)" Private="false" />
+    <Reference Include="$(WebView2WpfPath)" Private="false" />
+    <Reference Include="$(WindowsSdkNetPath)" Private="false" />
+    <Reference Include="$(WinRTRuntimePath)" Private="false" />
+    <Content Include="*.xaml" Link="Xaml/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\..\Sources\Mobi2EpubTransfer\Resources\hero-books-background.png" Link="Resources\hero-books-background.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\..\Sources\Mobi2EpubTransfer\Resources\reading-still-life.png" Link="Resources\reading-still-life.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\..\Sources\Mobi2EpubTransfer\Resources\reading-still-life-dark.png" Link="Resources\reading-still-life-dark.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="ValidateMacCrossBuildReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(WpfReferencePath)/PresentationFramework.dll')" Text="Set WpfReferencePath to the WindowsDesktop reference-pack net8.0 directory." />
+    <Error Condition="!Exists('$(WebView2CorePath)')" Text="Set WebView2CorePath to Microsoft.Web.WebView2.Core.dll." />
+    <Error Condition="!Exists('$(WebView2WpfPath)')" Text="Set WebView2WpfPath to Microsoft.Web.WebView2.Wpf.dll." />
+    <Error Condition="!Exists('$(WindowsSdkNetPath)')" Text="Set WindowsSdkNetPath to Microsoft.Windows.SDK.NET.dll." />
+    <Error Condition="!Exists('$(WinRTRuntimePath)')" Text="Set WinRTRuntimePath to WinRT.Runtime.dll." />
+  </Target>
+</Project>

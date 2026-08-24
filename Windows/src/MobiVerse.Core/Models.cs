@@ -26,6 +26,14 @@ public enum ConversionStrategy { Calibre, NativePdfFixedLayout }
 public enum EpubValidationStatus { Passed, Warnings, Failed, Skipped }
 public enum EpubReadingDirection { LeftToRight, RightToLeft }
 public enum EpubPreviewKind { ImagePages, Web }
+public enum BookContentKind { Text, Comic, Uncertain }
+public enum ConversionProfile { TextReflow, ComicFixedLayout }
+public enum ImportSource { BrowserDownload, FilePicker, DragAndDrop }
+
+public sealed record ClassificationResult(BookContentKind Kind, double Confidence, string Evidence)
+{
+    public double Confidence { get; init; } = Math.Clamp(Confidence, 0, 1);
+}
 
 public sealed class ConversionTask
 {
@@ -39,6 +47,14 @@ public sealed class ConversionTask
     public string Log { get; set; } = string.Empty;
     public string? ReportPath { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public ImportSource? ImportSource { get; set; }
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public BookContentKind? DetectedKind { get; set; }
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public ConversionProfile ConversionProfile { get; set; } = ConversionProfile.ComicFixedLayout;
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public EpubReadingDirection ReadingDirection { get; set; } = EpubReadingDirection.RightToLeft;
 }
 
 public sealed record ConversionProgressUpdate(
@@ -79,7 +95,16 @@ public sealed record EpubPreviewBook(
     EpubReadingDirection ReadingDirection,
     EpubPreviewKind Kind,
     IReadOnlyList<EpubImagePreviewPage> ImagePages,
-    string? StartDocumentPath);
+    IReadOnlyList<string> SpineDocumentPaths)
+{
+    public string? StartDocumentPath => SpineDocumentPaths.FirstOrDefault();
+}
+
+public sealed record PreviewReadingPosition(int SectionIndex, int PageIndex)
+{
+    public int SectionIndex { get; init; } = Math.Max(0, SectionIndex);
+    public int PageIndex { get; init; } = Math.Max(0, PageIndex);
+}
 
 public sealed class ConversionException(
     ConversionFailureKind kind,

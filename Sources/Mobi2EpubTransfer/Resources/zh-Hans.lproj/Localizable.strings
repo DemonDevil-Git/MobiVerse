@@ -52,6 +52,7 @@
 "List view" = "列表视图";
 "3D shelf" = "3D 书架";
 "Preview unavailable" = "无法预览";
+"Reader unavailable" = "无法打开阅读器";
 "Couldn’t delete EPUB" = "无法删除 EPUB";
 "Delete EPUB" = "删除 EPUB";
 "Analyzing book layout…" = "正在分析书籍版式…";
@@ -169,6 +170,10 @@
 "Cancelled" = "已取消";
 "Pause" = "暂停";
 "Resume" = "继续";
+"Remove Record" = "删除记录";
+"Remove download record?" = "要删除下载记录吗？";
+"The current download will be cancelled. Completed book files are never deleted." = "当前下载将被取消。已完成下载的书籍文件不会被删除。";
+"This removes the history entry only. The downloaded book file will stay on this Mac." = "这里只会删除历史记录；下载的书籍文件仍会保留在这台 Mac 上。";
 "Open external application?" = "要打开外部应用吗？";
 "Clear browser data?" = "要清除浏览器数据吗？";
 "Clear browsing data" = "清除浏览数据";
@@ -201,12 +206,16 @@
 "Preview in browser" = "在浏览器中预览";
 
 /* Reader */
-"Close Preview" = "关闭预览";
-"Close preview" = "关闭预览";
+"Read" = "阅读";
+"Close Reader" = "关闭阅读器";
 "Enter full screen" = "进入全屏";
 "Exit full screen" = "退出全屏";
 "%lld image pages" = "%lld 个图像页面";
-"Text EPUB preview · %lld sections" = "文本 EPUB 预览 · %lld 个章节";
+"Text EPUB · %lld sections" = "文本 EPUB · %lld 个章节";
+"Reading mode" = "阅读模式";
+"Single page" = "单页";
+"Two-page spread" = "双页跨页";
+"Continuous scroll" = "纵向连续";
 "SECTION %lld OF %lld" = "第 %lld／%lld 节";
 "PAGE %lld OF %lld" = "第 %lld／%lld 页";
 "Section %lld · Page %lld" = "第 %lld 节 · 第 %lld 页";
